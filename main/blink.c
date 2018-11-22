@@ -25,6 +25,7 @@
 #include "driver/gpio.h"
 #include "ICM-20602.h"
 #include "AD-7797BRUZ.h"
+#include "esp_heap_alloc_caps.h"
 
 /* Can run 'make menuconfig' to choose the GPIO to blink,
    or you can edit the following line and set a number here.
@@ -37,23 +38,23 @@
 #define PIN_NUM_VSPI_Q 19 //miso
 #define PIN_NUM_VSPI_D 23 //mosi
 #define PIN_NUM_CLK  18
-#define PIN_NUM_CS0   5
-#define PIN_NUM_CS1   4
-#define PIN_NUM_CS2   2
+#define PIN_NUM_CS0   5 // local acc
+#define PIN_NUM_CS1   4 // remote acc
+#define PIN_NUM_CS2   2 // adc
 
 static EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
 
 static const char* TAG = "Blink";
 
-void get_X(spi_device_handle_t * spi);
 void print_to_host(char * msg, ...);
-void spi_setup(spi_device_handle_t * spi);
+void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3);
+uint16_t get_data_acc(spi_device_handle_t * spi);
 void wifi_setup();
 
 char data[100];
-uint i_data = 100;
-uint8_t who_am_i[126];
+uint16_t i_data[1000];
+uint8_t who_am_i[2];
 uint8_t ad_rec;
 
 void print_to_host(char *msg, ...)
@@ -89,66 +90,82 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
 	return ESP_OK;
 }
 
-void spi_setup(spi_device_handle_t * spi)
+void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3)
 {
 	spi_bus_config_t buscfg={
-	        .miso_io_num=PIN_NUM_VSPI_Q,
-	        .mosi_io_num=PIN_NUM_VSPI_D,
-	        .sclk_io_num=PIN_NUM_CLK,
-	        .quadwp_io_num=-1,
-	        .quadhd_io_num=-1,
-	        .max_transfer_sz=4094,
-	    };
-	spi_device_interface_config_t devcfg0={
-	        .clock_speed_hz=10*1000,           //Clock out at 10 MHz
-	        .command_bits=0,
-			.address_bits=32,
-			.mode=0,                                //SPI mode 0
-	        .spics_io_num=PIN_NUM_CS0,               //CS pin
-	        .queue_size=7,                          //We want to be able to queue 7 transactions at a time  //Specify pre-transfer callback to handle D/C line
-	    };
-
+				        .miso_io_num=PIN_NUM_VSPI_Q,
+				        .mosi_io_num=PIN_NUM_VSPI_D,
+				        .sclk_io_num=PIN_NUM_CLK,
+				        .quadwp_io_num=-1,
+				        .quadhd_io_num=-1,
+				        .max_transfer_sz=4094*16,
+				    };
+	spi_device_interface_config_t devcfg={
+				        .clock_speed_hz=2*1000*1000,           //Clock out at 2 MHz
+				        .command_bits=0,
+						.address_bits=8,
+						.mode=0,                                //SPI mode 0
+				        .spics_io_num=PIN_NUM_CS0,               //CS pin
+				        .queue_size=7,  	//We want to be able to queue 7 transactions at a time
+						.flags=0,//SPI_DEVICE_POSITIVE_CS,
+				    };
 	ESP_ERROR_CHECK(spi_bus_initialize(VSPI_HOST, &buscfg, 1));
-	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg0, spi));
+	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg, spi1));
+	devcfg.spics_io_num = PIN_NUM_CS1;
+	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg, spi2));
+	devcfg.spics_io_num = PIN_NUM_CS2;
+	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg, spi3));
 }
 
 
 
-void accel_init(spi_device_handle_t * spi1)
+void accel_init(spi_device_handle_t * spi)
 {
-//	spi_transaction_t trans={
-//			            .addr=ICM20602_PWR_MGMT_1,
-//			            .cmd=0x00,
-//			            .flags=SPI_TRANS_USE_TXDATA,
-//			            .length=8,
-//			            .rxlength=8,
-//			            .tx_buffer=0,
-//						.tx_data=0x4, //cycle mode off
-//			            .rx_buffer=0,
-//			    };
-//	ESP_ERROR_CHECK(spi_device_transmit(*spi1, &trans));
-//	spi_transaction_t trans={
-//			            .addr=ICM20602_PWR_MGMT_2,
-//			            .cmd=0x00,
-//			            .flags=SPI_TRANS_USE_TXDATA,
-//			            .length=8,
-//			            .rxlength=8,
-//			            .tx_buffer=0,
-//						.tx_data=0x00, //cycle mode on
-//			            .rx_buffer=0,
-//			    };
-//	ESP_ERROR_CHECK(spi_device_transmit(*spi1, &trans));
-//	spi_transaction_t trans={
-//			            .addr=ICM20602_PWR_MGMT_2,
-//			            .cmd=0x00,
-//			            .flags=SPI_TRANS_USE_TXDATA,
-//			            .length=8,
-//			            .rxlength=8,
-//			            .tx_buffer=0,
-//						.tx_data=0x20, //cycle mode on
-//			            .rx_buffer=0,
-//			    };
+	spi_transaction_t trans;
+	memset(&trans, 0, sizeof(spi_transaction_t));
+	trans.addr=ICM20602_PWR_MGMT_1;
+	trans.flags=SPI_TRANS_USE_TXDATA;
+	trans.length=16;
+	trans.tx_data[0]=(1<<5) | (1<<4) | 1; //cycle mode | gyro stanby | auto select clock
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+	spi_transaction_t * r_trans;
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+
+	trans.addr=ICM20602_ACCEL_CONFIG;
+	trans.tx_data[0]=(2<<3);
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+
+	trans.addr=ICM20602_ACCEL_CONFIG2;
+	trans.tx_data[0]=(1<<3); // Used to bypass DLPF (4kHz sample rate)
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+
+	trans.addr=ICM20602_FIFO_EN;
+	trans.tx_data[0]=(1<<3) | (1<<4); // enable write acc and gyro data
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+
+
+
+
 }
+
+void acc_who_i_am(spi_device_handle_t * spi, uint8_t i)
+{
+	spi_transaction_t trans;
+	memset(&trans, 0, sizeof(spi_transaction_t));
+	trans.addr = (0x80 | ICM20602_WHO_AM_I);
+	trans.length = 16;
+	trans.rxlength=8;
+	trans.rx_data[0] = 1;
+	trans.flags = SPI_TRANS_USE_RXDATA;
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+	spi_transaction_t * r_trans;
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+	who_am_i[i] = r_trans->rx_data[0];
+}
+
 
 void adc_setup(spi_device_handle_t * spi2)
 {
@@ -189,119 +206,52 @@ void get_data(void *pvParameter)
 	spi_device_handle_t spi1;
 	spi_device_handle_t spi2;
 	spi_device_handle_t spi3;
-//	spi_init(&spi1);
+	spi_setup(&spi1, &spi2, &spi3);
+	accel_init(&spi1);
+	accel_init(&spi2);
+//	vTaskDelay(1 / portTICK_PERIOD_MS);
+	acc_who_i_am(&spi1, 0);  // test icm-20602: write to who_am_i global variable dec18
+	acc_who_i_am(&spi2, 1);
 
-	uint8_t low_b = 0;
-	uint8_t high_b = 0;
-	spi_bus_config_t buscfg={
-				        .miso_io_num=PIN_NUM_VSPI_Q,
-				        .mosi_io_num=PIN_NUM_VSPI_D,
-				        .sclk_io_num=PIN_NUM_CLK,
-				        .quadwp_io_num=-1,
-				        .quadhd_io_num=-1,
-				        .max_transfer_sz=4094,
-				    };
-	spi_device_interface_config_t devcfg={
-				        .clock_speed_hz=2*1000*1000,           //Clock out at 2 MHz
-				        .command_bits=0,
-						.address_bits=8,
-						.mode=0,                                //SPI mode 0
-				        .spics_io_num=PIN_NUM_CS0,               //CS pin
-				        .queue_size=7,  	//We want to be able to queue 7 transactions at a time
-						.flags=0,//SPI_DEVICE_POSITIVE_CS,
-				    };
-	ESP_ERROR_CHECK(spi_bus_initialize(VSPI_HOST, &buscfg, 1));
-	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg, &spi1));
-	devcfg.spics_io_num = PIN_NUM_CS1;
-	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg, &spi2));
-	devcfg.spics_io_num = PIN_NUM_CS2;
-	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg, &spi3));
-//	spi_transaction_t trans = {
-//					            .addr=ICM20602_PWR_MGMT_1,
-//					            .cmd=0,
-//					            .flags=SPI_TRANS_USE_TXDATA,
-//					            .length=64,
-//					            .rxlength=8,
-//					            .tx_buffer=0,
-//								.tx_data=0x4, //cycle mode on
-//					            .rx_buffer=0,
-//					    };
-	uint8_t tx_data = 0x20;
-	spi_transaction_t trans[2];
-	memset(&trans[0], 0, sizeof(spi_transaction_t));
-	trans[0].addr = (0x80 | ICM20602_WHO_AM_I);
-//	trans[0].cmd = 1;
-	trans[0].length = 16;
-//	memset(&trans[1], 0, sizeof(spi_transaction_t));
-//	trans[0].length = 8;
-	trans[0].rxlength=8;
-	trans[0].rx_data[0] = 1;
-	trans[0].rx_data[1] = 0;
-	trans[0].rx_data[2] = 0;
-	trans[0].rx_data[3] = 0;
-	trans[0].flags = SPI_TRANS_USE_RXDATA;
-	ESP_ERROR_CHECK(spi_device_queue_trans(spi1, &trans[0], portMAX_DELAY));
-//	ESP_ERROR_CHECK(spi_device_queue_trans(spi1, &trans[1], portMAX_DELAY));
-	spi_transaction_t * r_trans;
-	ESP_ERROR_CHECK(spi_device_get_trans_result(spi1, &r_trans, portMAX_DELAY));
-//	ESP_ERROR_CHECK(spi_device_get_trans_result(spi1, &r_trans, portMAX_DELAY));
-	who_am_i[0] = r_trans->rx_data[0];
-//	who_am_i[1] = r_trans->rx_data[1];
-//	who_am_i[2] = r_trans->rx_data[2];
-//	who_am_i[3] = r_trans->rx_data[3];
-
-
-//	{
-//	            .addr=ICM20602_PWR_MGMT_1,
-//	            .cmd=0,
-//	            .flags=0,
-//	            .length=16,
-//	            .rxlength=0,
-//	            .tx_buffer=&tx_data,
-//	            .rx_buffer=0,
-//	    };
-////	ESP_ERROR_CHECK(spi_device_transmit(spi1, &trans));
-
-//	trans.addr=ICM20602_WHO_AM_I;
-//	trans.cmd=0;
-//	trans.flags=0;//SPI_DEVICE_TXBIT_LSBFIRST,
-//	trans.length=24;
-//	trans.rxlength=8;
-//	trans.tx_buffer=0;
-//	trans.rx_buffer=&who_am_i;
-////	ESP_ERROR_CHECK(spi_device_transmit(spi1, &trans));
-//	ESP_ERROR_CHECK(spi_device_queue_trans(spi1, &trans, portMAX_DELAY));
-//	spi_transaction_t * r_trans;
+	for(int i = 0; i < 1000; i++)
+	    	{
+	    		i_data[i] = get_data_acc(&spi1);
+	    	}
 
 
     while(1)
     {
 
     }
-//    {	for (int i = 1; i < 126; i++)
-//    	{
-//    		trans[0].addr = (0x80 | i);
-//    		ESP_ERROR_CHECK(spi_device_queue_trans(spi1, &trans[0], portMAX_DELAY));
-//    		ESP_ERROR_CHECK(spi_device_get_trans_result(spi1, &r_trans, portMAX_DELAY));
-//    		who_am_i[i] =  r_trans->rx_data[0];
-//    	}
-
-//    	get_X(p);
-//    	print_to_host("Reading data...");
-//    	trans.addr=ICM20602_ACCEL_XOUT_L;
-//    	trans.rx_buffer=&low_b;
-//    	ESP_ERROR_CHECK(spi_device_transmit(spi1, &trans));
-//    	trans.addr = ICM20602_ACCEL_XOUT_H;
-//    	trans.rx_buffer = &high_b;
-//    	ESP_ERROR_CHECK(spi_device_transmit(spi1, &trans));
-//    	vTaskDelay(100 / portTICK_PERIOD_MS);
-//    	i_data = low_b | (high_b<<8);
 //    	sprintf(data,"X = %u", i_data);
 //    	sprintf(data,"X = %i", i_data);
 //    	itoa(i_data, data, 10);
 //    	print_to_host(data);
 //    }
 
+}
+
+uint16_t get_data_acc(spi_device_handle_t * spi)
+{
+	spi_transaction_t trans;
+	uint8_t low_b;// = pvPortMallocCaps(8, MALLOC_CAP_DMA);
+	uint8_t high_b;// = pvPortMallocCaps(8, MALLOC_CAP_DMA);
+
+	memset(&trans, 0, sizeof(spi_transaction_t));
+	trans.addr = (0x80 | ICM20602_ACCEL_XOUT_L);
+	trans.rx_buffer=&low_b;
+	trans.length = 16;
+	trans.rxlength=8;
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+	spi_transaction_t * r_trans1;
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans1, portMAX_DELAY));
+
+	trans.addr = (0x80 | ICM20602_ACCEL_XOUT_H);
+	trans.rx_buffer=&high_b;
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans1, portMAX_DELAY));
+	uint16_t x = low_b | (high_b<<8);
+	return(x);
 }
 
 void get_data_adc(void *pvParameter)
@@ -346,43 +296,10 @@ void get_data_adc(void *pvParameter)
 		ad_rec = r_trans->rx_data[0];
 }
 
-void get_X(spi_device_handle_t * spi)
-{
-	uint8_t low_b, high_b;
-	spi_transaction_t trans={
-	            .addr=ICM20602_ACCEL_XOUT_L,
-	            .cmd=0,
-	            .flags=0,
-	            .length=8,
-	            .rxlength=8,
-	            .tx_buffer=0,
-	            .rx_buffer=&low_b,
-//				.rx_data=&low_b,
-	    };
-	ESP_ERROR_CHECK(spi_device_transmit(*spi, &trans));
-	trans.addr = ICM20602_ACCEL_XOUT_H;
-	trans.rx_buffer = &high_b;
-//	spi_transaction_t trans={
-//		            .addr=ICM20602_ACCEL_XOUT_H,
-//		            .cmd=0,
-//		            .flags=0,
-//		            .length=0,
-//		            .rxlength=8,
-//		            .tx_buffer=0,
-//		            .rx_buffer=&high_b,
-//		    };
-	ESP_ERROR_CHECK(spi_device_transmit(*spi, &trans));
-	int i_data = low_b | (high_b<<8);
-	char data[2];
-	sprintf(data,"%d", i_data);
-	print_to_host(data);
-}
-
 void blink_task(void *pvParameter)
 {
     gpio_pad_select_gpio(BLINK_GPIO);
     /* Set the GPIO as a push/pull output */
-
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
     while(1) {
         /* Blink off (output low) */
@@ -482,5 +399,4 @@ void app_main()
 //	xTaskCreate(&wifi_task, "wifi_task", 2048, NULL, 5, NULL);
     xTaskCreate(&blink_task, "blink_task", configMINIMAL_STACK_SIZE, NULL, 10, NULL);
     xTaskCreate(&get_data, "get_data", 2048, NULL, 1, NULL);
-//    xTaskCreate(&get_data_acc, "get_data", 2048, NULL, 1, NULL);
 }
