@@ -5,38 +5,48 @@
 #include "esp_event_loop.h"
 #include "nvs_flash.h"
 #include "driver/gpio.h"
+#include "udp_logging.h"
+#include "mssg.pb.h"
+#include "tcp_server.h"
+#include "spi.h"
 
-esp_err_t event_handler(void *ctx, system_event_t *event)
+static const char *TAG = "frog";
+
+void ok_blink_task(void *pvParameters)
 {
-    return ESP_OK;
+	int level1 = 0;
+	while (1)
+	{
+		    	gpio_set_level(27, level1);
+		    	ESP_LOGI(TAG, "TICK");
+		    	level1 = !level1;
+		    	vTaskDelay(300 / portTICK_PERIOD_MS);
+	}
+
 }
+
 
 void app_main(void)
 {
-    nvs_flash_init();
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    wifi_config_t sta_config = {
-        .sta = {
-            .ssid = CONFIG_ESP_WIFI_SSID,
-            .password = CONFIG_ESP_WIFI_PASSWORD,
-            .bssid_set = false
-        }
-    };
-    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &sta_config) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
-    ESP_ERROR_CHECK( esp_wifi_connect() );
+		esp_err_t ret = nvs_flash_init();
+	    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+	    {
+	      ESP_ERROR_CHECK(nvs_flash_erase());
+	      ret = nvs_flash_init();
+	    }
+	    ESP_ERROR_CHECK(ret);
+	    ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
+	    gpio_set_direction(27, GPIO_MODE_OUTPUT);
+	    gpio_set_direction(26, GPIO_MODE_OUTPUT);
+	    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
+	    wifi_event_group = xEventGroupCreate();
+	    start_dhcp_server();
+	    initialise_wifi_in_ap();
+//	    udp_logging_init( "192.168.1.2", 1337, udp_logging_vprintf);
+	    xTaskCreate(tcp_server,"tcp_server",4096,NULL,5,NULL);
+//	    xTaskCreate(tcp_client_task, "tcp_client", 4096, NULL, 5, NULL);
+	    xTaskCreate(ok_blink_task, "ok_blink", 4096, NULL, 5, NULL);
+	    xTaskCreate(get_data, "get_data", 8096, NULL, 5, NULL);
 
-    gpio_set_direction(GPIO_NUM_4, GPIO_MODE_OUTPUT);
-    int level = 0;
-    while (true) {
-        gpio_set_level(GPIO_NUM_4, level);
-        level = !level;
-        vTaskDelay(300 / portTICK_PERIOD_MS);
-    }
 }
 
