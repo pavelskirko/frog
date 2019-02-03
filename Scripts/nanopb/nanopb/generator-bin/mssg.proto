@@ -1,9 +1,10 @@
 syntax = "proto3";
 
 message Accel {
-	int32 a_x = 1;
-	int32 a_y = 2;
-	int32 a_z = 3;
+	uint32 a_x = 1;
+	uint32 a_y = 2;
+	uint32 a_z = 3;
+	uint64 time = 4;
 }
 
 message FinalResult {

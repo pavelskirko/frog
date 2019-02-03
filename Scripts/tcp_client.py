@@ -32,7 +32,8 @@ except socket.error as msg:
         print('Could not open socket: ', msg)
         sock.close()
         sys.exit(1)
-data_ar = []
+data_ar1 = []
+data_ar2 = []
 num = 100
 while num > 0:
     # msg = input('Enter message to send: ')
@@ -44,14 +45,28 @@ while num > 0:
     if not data:
         continue
         print("there is no data")
-    data_ar.append(data)
+    data_ar1.append(data)
+    data = sock.recv(1024)
+    print("received: ", len(data))
+    if not data:
+        continue
+        print("there is no data")
     num = num - 1
 
 sock.close()
-for el in data_ar:
+accelerations = []
+for el, i in enumerate(data_ar1):
+    single_acc = []
     try:
         accel.ParseFromString(el)
-        print(accel)
+        single_acc.append(accel)
     except:
         print("Error")
-print("Overall, ", len(data_ar), " elements")
+    try:
+        accel.ParseFromString(data_ar2[i])
+        single_acc.append(accel)
+    except:
+        print("Error")
+    print("a1: ", single_acc[0], " a2: ", single_acc[1])
+    accelerations.append(single_acc)
+print("Overall, ", len(data_ar1), " + " , len(data_ar2), " elements")

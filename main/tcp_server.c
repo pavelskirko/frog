@@ -139,7 +139,7 @@ void tcp_server(void *pvParameters)
             //detection logic. If know the client message format you should instead impliment logic
             //detect the end of message
             fcntl(cs,F_SETFL,O_NONBLOCK);
-
+        	uint16_t r = 0;
             while(1)
             {
             	const TickType_t xTicksToWait = 1000000 / portTICK_PERIOD_MS;
@@ -149,12 +149,16 @@ void tcp_server(void *pvParameters)
             	                 pdTRUE,         // BIT_0 and BIT_4 should be cleared before returning.
             	                 pdFALSE,        // Don't wait for both bits, either bit will do.
             	                 xTicksToWait );
-            	uint16_t r = 0;
-            	while(r < sizeof(buff))
+            	r = 0;
+            	while(r < sizeof(buff1))
             	{
-            		r = write(cs , buff, sizeof(buff));
+            		r = write(cs , buff1, sizeof(buff1));
             	}
-
+            	r = 0;
+            	while(r < sizeof(buff2))
+            	{
+            		r = write(cs , buff2, sizeof(buff2));
+            	}
             	indic(1);
             	xEventGroupSetBits(SpiEventGroup, BIT1);
 

@@ -21,7 +21,7 @@ void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_devic
 				        .max_transfer_sz=4094*16,
 				    };
 	spi_device_interface_config_t devcfg={
-				        .clock_speed_hz=2*1000*1000,           //Clock out at 2 MHz
+				        .clock_speed_hz=10*1000*1000,           //Clock out at 2 MHz
 				        .command_bits=0,
 						.address_bits=8,
 						.mode=0,                                //SPI mode 0
@@ -90,7 +90,7 @@ void acc_who_i_am(spi_device_handle_t * spi, uint8_t i)
 void adc_setup(spi_device_handle_t * spi2)
 {
 	spi_device_interface_config_t devcfg2={
-						        .clock_speed_hz=10*1000,           //Clock out at 10 KHz
+						        .clock_speed_hz=10*1000*1000,           //Clock out at 10 MHz
 						        .command_bits=8,
 								.address_bits=8,
 								.mode=0,                                //SPI mode 0
@@ -125,7 +125,9 @@ void get_data(void *pvParameter)
 {
 //	FinalResult data = FinalResult_init_default;
 	SpiEventGroup = xEventGroupCreate();
+	xTaskToNotify = NULL;
 	Accel a1[NUM_OF_FIELDS];
+	Accel a2[NUM_OF_FIELDS];
 	spi_device_handle_t spi1;
 	spi_device_handle_t spi2;
 	spi_device_handle_t spi3;
@@ -135,36 +137,59 @@ void get_data(void *pvParameter)
 //	vTaskDelay(1 / portTICK_PERIOD_MS);
 	acc_who_i_am(&spi1, 0);  // test icm-20602: write to who_am_i global variable dec18
 	acc_who_i_am(&spi2, 1);
-	uint16_t num = 0;
-	uint16_t data_x[NUM_OF_FIELDS];
-	uint16_t data_y[NUM_OF_FIELDS];
-	uint16_t data_z[NUM_OF_FIELDS];
-	pb_ostream_t stream = pb_ostream_from_buffer(buff, sizeof(buff));
-	while(num < NUM_OF_FIELDS)
+	uint16_t num1 = 0;
+	uint16_t num2 = 0;
+	pb_ostream_t stream1 = pb_ostream_from_buffer(buff1, sizeof(buff1));
+	pb_ostream_t stream2 = pb_ostream_from_buffer(buff2, sizeof(buff2));
+//	xEventGroupWaitBits(SpiEventGroup,    // The event group being tested.
+//		                 BIT2,  // The bits within the event group to wait for.
+//		                 pdTRUE,         //  should be cleared before returning.
+//		                 pdFALSE,        // Don't wait for both bits, either bit will do.
+//		                 xTicksToWait);
+	xTaskToNotify = xTaskGetCurrentTaskHandle();
+//	while(xSemaphoreTake(xSemaphore,portMAX_DELAY) == pdFALSE)
+//	{
+//
+//	}
+	ulTaskNotifyTake(pdTRUE,  portMAX_DELAY);
+	timer_start(0, 0);
+	while(num1 < NUM_OF_FIELDS && num2 < NUM_OF_FIELDS)
 	{
-    	if((check_intr(&spi1) & 1) && num < NUM_OF_FIELDS)
+    	if((check_intr(&spi1) & 1) && num1 < NUM_OF_FIELDS)
     	{
 
-    		a1[num].a_x = get_data_acc(&spi1, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
-    		a1[num].a_y = get_data_acc(&spi1, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
-    		a1[num].a_z = get_data_acc(&spi1, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
+    		a1[num1].a_x = get_data_acc(&spi1, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
+    		a1[num1].a_y = get_data_acc(&spi1, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
+    		a1[num1].a_z = get_data_acc(&spi1, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
+    		timer_get_counter_value(0,0, &a1[num1].time);
     		indic(1);
-    		num++;
+    		num1++;
+    	}
+    	if((check_intr(&spi1) & 1) && num2 < NUM_OF_FIELDS)
+    	{
+
+    		a2[num2].a_x = get_data_acc(&spi1, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
+    		a2[num2].a_y = get_data_acc(&spi1, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
+    		a2[num2].a_z = get_data_acc(&spi1, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
+    		timer_get_counter_value(0,0, &a2[num2].time);
+    		indic(1);
+    		num2++;
     	}
     }
 	xEventGroupSetBits(SpiEventGroup, BIT1);
-	const TickType_t xTicksToWait = 100000 / portTICK_PERIOD_MS;
+
 	for(uint16_t i = 0; i < NUM_OF_FIELDS; i++)
 	{
 		xEventGroupWaitBits(SpiEventGroup,    // The event group being tested.
 		                 BIT1,  // The bits within the event group to wait for.
-		                 pdTRUE,         // BIT_0 and BIT_4 should be cleared before returning.
+		                 pdTRUE,         // should be cleared before returning.
 		                 pdFALSE,        // Don't wait for both bits, either bit will do.
-		                 xTicksToWait );
-   		memset(buff, 0, BUFF_SIZE);
-   		memset(&stream, 0, sizeof(pb_ostream_t));
-   		stream = pb_ostream_from_buffer(buff, sizeof(buff));
-	    if(pb_encode(&stream, Accel_fields, &a1[i]))
+						 portMAX_DELAY );
+   		memset(buff1, 0, BUFF_SIZE);
+   		memset(buff2, 0, BUFF_SIZE);
+//   		memset(&stream, 0, sizeof(pb_ostream_t));
+//   		stream = pb_ostream_from_buffer(buff, sizeof(buff));
+	    if(pb_encode(&stream1, Accel_fields, &a1[i]) && pb_encode(&stream2, Accel_fields, &a2[i]))
 		{
 	    	xEventGroupSetBits(SpiEventGroup, BIT0);
 		}
