@@ -21,7 +21,7 @@ void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_devic
 				        .max_transfer_sz=4094*16,
 				    };
 	spi_device_interface_config_t devcfg={
-				        .clock_speed_hz=10*1000*1000,           //Clock out at 2 MHz
+				        .clock_speed_hz=2*1000*1000,           //Clock out at 10 MHz
 				        .command_bits=0,
 						.address_bits=8,
 						.mode=0,                                //SPI mode 0
@@ -126,21 +126,22 @@ void get_data(void *pvParameter)
 //	FinalResult data = FinalResult_init_default;
 	SpiEventGroup = xEventGroupCreate();
 	xTaskToNotify = NULL;
-	Accel a1[NUM_OF_FIELDS];
-	Accel a2[NUM_OF_FIELDS];
+//	buff1 = malloc(BUFF_SIZE);
+	Accel a1[NUM_OF_FIELDS]; //= malloc(NUM_OF_FIELDS * sizeof(Accel));
+//	Accel a2[NUM_OF_FIELDS];
 	spi_device_handle_t spi1;
 	spi_device_handle_t spi2;
 	spi_device_handle_t spi3;
 	spi_setup(&spi1, &spi2, &spi3);
 	accel_init(&spi1);
-	accel_init(&spi2);
+//	accel_init(&spi2);
 //	vTaskDelay(1 / portTICK_PERIOD_MS);
 	acc_who_i_am(&spi1, 0);  // test icm-20602: write to who_am_i global variable dec18
 	acc_who_i_am(&spi2, 1);
 	uint16_t num1 = 0;
 	uint16_t num2 = 0;
 	pb_ostream_t stream1 = pb_ostream_from_buffer(buff1, sizeof(buff1));
-	pb_ostream_t stream2 = pb_ostream_from_buffer(buff2, sizeof(buff2));
+//	pb_ostream_t stream2 = pb_ostream_from_buffer(buff2, sizeof(buff2));
 //	xEventGroupWaitBits(SpiEventGroup,    // The event group being tested.
 //		                 BIT2,  // The bits within the event group to wait for.
 //		                 pdTRUE,         //  should be cleared before returning.
@@ -153,28 +154,41 @@ void get_data(void *pvParameter)
 //	}
 	ulTaskNotifyTake(pdTRUE,  portMAX_DELAY);
 	timer_start(0, 0);
-	while(num1 < NUM_OF_FIELDS && num2 < NUM_OF_FIELDS)
+	while(num1 < NUM_OF_FIELDS || num2 < NUM_OF_FIELDS)
 	{
     	if((check_intr(&spi1) & 1) && num1 < NUM_OF_FIELDS)
     	{
 
-    		a1[num1].a_x = get_data_acc(&spi1, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
-    		a1[num1].a_y = get_data_acc(&spi1, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
-    		a1[num1].a_z = get_data_acc(&spi1, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
+    		a1[num1].a_x = 0;//get_data_acc(&spi1, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
+    		a1[num1].a_y = 0;//get_data_acc(&spi1, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
+    		a1[num1].a_z = 0;//get_data_acc(&spi1, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
     		timer_get_counter_value(0,0, &a1[num1].time);
-    		indic(1);
-    		num1++;
-    	}
-    	if((check_intr(&spi1) & 1) && num2 < NUM_OF_FIELDS)
-    	{
+    		a1[num1].up = true;
+    		a1[num1].last_msg = false;
 
-    		a2[num2].a_x = get_data_acc(&spi1, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
-    		a2[num2].a_y = get_data_acc(&spi1, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
-    		a2[num2].a_z = get_data_acc(&spi1, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
-    		timer_get_counter_value(0,0, &a2[num2].time);
-    		indic(1);
+//        	a2[num1].a_x = 0;
+//        	a2[num1].a_y = 0;
+//        	a2[num1].a_z = 0;
+//        	a2[num1].last_msg = false;
+//    		timer_get_counter_value(0,0, &a2[num1].time);
+
+        	indic(1);
+    		num1++;
     		num2++;
     	}
+
+//    	if((check_intr(&spi2) & 1) && num2 < NUM_OF_FIELDS)
+//    	{
+//
+//    		a2[num2].a_x = get_data_acc(&spi2, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
+//    		a2[num2].a_y = get_data_acc(&spi2, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
+//    		a2[num2].a_z = get_data_acc(&spi2, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
+//    		timer_get_counter_value(0,0, &a2[num2].time);
+//    		a2[num2].up = false;
+//    		a2[num2].last_msg = false;
+//    		indic(1);
+//    		num2++;
+//    	}
     }
 	xEventGroupSetBits(SpiEventGroup, BIT1);
 
@@ -186,14 +200,19 @@ void get_data(void *pvParameter)
 		                 pdFALSE,        // Don't wait for both bits, either bit will do.
 						 portMAX_DELAY );
    		memset(buff1, 0, BUFF_SIZE);
-   		memset(buff2, 0, BUFF_SIZE);
-//   		memset(&stream, 0, sizeof(pb_ostream_t));
-//   		stream = pb_ostream_from_buffer(buff, sizeof(buff));
-	    if(pb_encode(&stream1, Accel_fields, &a1[i]) && pb_encode(&stream2, Accel_fields, &a2[i]))
-		{
-	    	xEventGroupSetBits(SpiEventGroup, BIT0);
-		}
+//   		memset(buff2, 0, BUFF_SIZE);
+   		memset(&stream1, 0, sizeof(pb_ostream_t));
+//   		memset(&stream2, 0, sizeof(pb_ostream_t));
+   		stream1 = pb_ostream_from_buffer(buff1, sizeof(buff1));
+//   		stream2 = pb_ostream_from_buffer(buff2, sizeof(buff2));
+   		pb_encode(&stream1, Accel_fields, &a1[i]);
+//   		pb_encode(&stream2, Accel_fields, &a2[i]);
+//	    if(pb_encode(&stream1, Accel_fields, &a1[i]) && pb_encode(&stream2, Accel_fields, &a2[i]))
+//		{
+	    xEventGroupSetBits(SpiEventGroup, BIT0);
+//		}
 	}
+	xEventGroupSetBits(SpiEventGroup, BIT3);
 
 	while(1)
 	{
@@ -220,8 +239,8 @@ uint8_t check_intr(spi_device_handle_t * spi)
 uint16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_high)
 {
 	spi_transaction_t trans;
-	uint8_t low_b;// = pvPortMallocCaps(8, MALLOC_CAP_DMA);
-	uint8_t high_b;// = pvPortMallocCaps(8, MALLOC_CAP_DMA);
+	uint32_t low_b;// = pvPortMallocCaps(sizeof(uint32_t), MALLOC_CAP_DMA);
+	uint32_t high_b;// = pvPortMallocCaps(sizeof(uint32_t), MALLOC_CAP_DMA);
 
 	memset(&trans, 0, sizeof(spi_transaction_t));
 	trans.addr = (0x80 | addr_low);

@@ -42,13 +42,13 @@
 #define PIN_NUM_CS0   5 // local acc
 #define PIN_NUM_CS1   4 // remote acc
 #define PIN_NUM_CS2   2 // adc
-#define BUFF_SIZE	100
-#define NUM_OF_FIELDS	100
+#define BUFF_SIZE	200
+#define NUM_OF_FIELDS	10
 
 //SemaphoreHandle_t xSemaphore;
 TaskHandle_t xTaskToNotify;
 uint8_t buff1[BUFF_SIZE];
-uint8_t buff2[BUFF_SIZE];
+//uint8_t buff2[BUFF_SIZE];
 EventGroupHandle_t SpiEventGroup;
 void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3);
 uint16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_high);

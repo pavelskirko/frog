@@ -145,7 +145,7 @@ void tcp_server(void *pvParameters)
             	const TickType_t xTicksToWait = 1000000 / portTICK_PERIOD_MS;
             	xEventGroupWaitBits(
             	                 SpiEventGroup,    // The event group being tested.
-            	                 BIT0,  // The bits within the event group to wait for.
+            	                 BIT0 | BIT3,  // The bits within the event group to wait for.
             	                 pdTRUE,         // BIT_0 and BIT_4 should be cleared before returning.
             	                 pdFALSE,        // Don't wait for both bits, either bit will do.
             	                 xTicksToWait );
@@ -155,12 +155,22 @@ void tcp_server(void *pvParameters)
             		r = write(cs , buff1, sizeof(buff1));
             	}
             	r = 0;
-            	while(r < sizeof(buff2))
-            	{
-            		r = write(cs , buff2, sizeof(buff2));
-            	}
+//            	while(r < sizeof(buff2))
+//            	{
+//            		r = write(cs , buff2, sizeof(buff2));
+//            	}
             	indic(1);
             	xEventGroupSetBits(SpiEventGroup, BIT1);
+            	if(xEventGroupGetBits(SpiEventGroup) & BIT3)
+            	{
+            		Accel a = Accel_init_default;
+            		a.last_msg = true;
+            		pb_ostream_t stream = pb_ostream_from_buffer(buff1, sizeof(buff1));
+            		pb_encode(&stream, Accel_fields, &a);
+            		vTaskDelay(100 / portTICK_PERIOD_MS);
+            		memset(buff1, 0, BUFF_SIZE);
+            		write(cs , buff1, sizeof(buff1));
+            	}
 
             }
 

@@ -35,38 +35,53 @@ except socket.error as msg:
 data_ar1 = []
 data_ar2 = []
 num = 100
-while num > 0:
+while True:
     # msg = input('Enter message to send: ')
     # assert isinstance(msg, str)
     # msg = msg.encode()
     # sock.sendall(msg)
     data = sock.recv(1024)
     print("received: ", len(data))
+    # if len(data) == 1:
+    #     break
     if not data:
         continue
         print("there is no data")
-    data_ar1.append(data)
-    data = sock.recv(1024)
-    print("received: ", len(data))
-    if not data:
+    try:
+        accel.ParseFromString(data)
+    except:
+        print("Error")
         continue
-        print("there is no data")
-    num = num - 1
+    print(accel)
 
+    if accel.last_msg:
+        # print(accel)
+        break
+    if accel.up:
+        data_ar1.append(accel)
+    else:
+        data_ar2.append(data)
+    
 sock.close()
 accelerations = []
 for el, i in enumerate(data_ar1):
-    single_acc = []
-    try:
-        accel.ParseFromString(el)
-        single_acc.append(accel)
-    except:
-        print("Error")
-    try:
-        accel.ParseFromString(data_ar2[i])
-        single_acc.append(accel)
-    except:
-        print("Error")
-    print("a1: ", single_acc[0], " a2: ", single_acc[1])
-    accelerations.append(single_acc)
-print("Overall, ", len(data_ar1), " + " , len(data_ar2), " elements")
+    # single_acc = []
+    # try:
+    #     accel.ParseFromString(el)
+    #     single_acc.append(accel)
+    # except:
+    #     print("Error")
+    # try:
+    #     accel.ParseFromString(data_ar2[i])
+    #     single_acc.append(accel)
+    # except:
+    #     print("Error")
+    # try:
+    #     print("a1: ", single_acc[0], " a2: ", single_acc[1])
+    # except:
+    #     pass
+    # accelerations.append(single_acc)
+    print(el)
+for el, i in enumerate(data_ar2):
+    print(el)
+print("Overall, ", len(data_ar1), " + ", len(data_ar2), " elements")
