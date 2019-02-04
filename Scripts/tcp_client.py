@@ -34,7 +34,7 @@ except socket.error as msg:
         sys.exit(1)
 data_ar1 = []
 data_ar2 = []
-num = 100
+res = mssg_pb2.FinalResult()
 while True:
     # msg = input('Enter message to send: ')
     # assert isinstance(msg, str)
@@ -53,16 +53,19 @@ while True:
         print("Error")
         continue
     print(accel)
-
     if accel.last_msg:
         # print(accel)
         break
     if accel.up:
-        data_ar1.append(accel)
+        res.up.extend([accel])
     else:
-        data_ar2.append(data)
-    
+        res.down.extend([accel])
+
 sock.close()
+res_encoded = res.SerializeToString()
+file = open("result.txt", "wb+")
+file.write(res_encoded)
+file.close()
 # accelerations = []
 # for el, i in enumerate(data_ar1):
     # single_acc = []
@@ -81,7 +84,7 @@ sock.close()
     # except:
     #     pass
     # accelerations.append(single_acc)
-    print(el)
+    # print(el)
 # for el, i in enumerate(data_ar2):
 #     print(el)
 print("Overall, ", len(data_ar1), " + ", len(data_ar2), " elements")

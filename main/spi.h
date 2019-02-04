@@ -57,6 +57,7 @@ void acc_who_i_am(spi_device_handle_t * spi, uint8_t i);
 void adc_setup(spi_device_handle_t * spi2);
 void get_data(void *pvParameter);
 void get_data_adc(void *pvParameter);
+void get_data_acc_fifo(spi_device_handle_t * spi, uint16_t * dma_buf);
 uint8_t check_intr(spi_device_handle_t * spi);
 
 

@@ -10,10 +10,12 @@
 #include "mssg.pb.h"
 #include "tcp_server.h"
 #include "spi.h"
+#include "esp_heap_caps.h"
+#include "esp_heap_caps_init.h"
 
 static const char *TAG = "frog";
 
-#define TIMER_DIVIDER         16  //  Hardware timer clock divider
+#define TIMER_DIVIDER         1  //  Hardware timer clock divider
 #define TEST_WITHOUT_RELOAD   0        // testing will be done without auto reload
 #define TEST_WITH_RELOAD      1        // testing will be done with auto reload
 
@@ -76,6 +78,7 @@ void app_main(void)
 	   ret = nvs_flash_init();
 	}
 	ESP_ERROR_CHECK(ret);
+//	heap_caps_init();
 	ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
 	gpio_set_direction(27, GPIO_MODE_OUTPUT);
 	gpio_set_direction(26, GPIO_MODE_OUTPUT);
@@ -90,7 +93,7 @@ void app_main(void)
 
 	 xTaskCreate(tcp_server,"tcp_server",4096,NULL,5,NULL);
 //	 xTaskCreate(tcp_client_task, "tcp_client", 4096, NULL, 5, NULL);
-	 xTaskCreate(ok_blink_task, "ok_blink", 4096, NULL, 5, NULL);
-	 xTaskCreate(get_data, "get_data", 8096*8, NULL, 5, NULL);
+	 xTaskCreate(ok_blink_task, "ok_blink", 1024*2, NULL, 5, NULL);
+	 xTaskCreate(get_data, "get_data", 8096*4, NULL, 5, NULL);
 }
 

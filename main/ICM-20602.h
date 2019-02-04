@@ -86,6 +86,9 @@
 //#define I2C_SLV2_DO      0x65
 //#define I2C_SLV3_DO      0x66
 //#define I2C_MST_DELAY_CTRL 0x67
+#define ICM20602_FIFO_WM_INT	0x39
+#define ICM20602_FIFO_WM_TH1	0x60
+#define ICM20602_FIFO_WM_TH2	0x61
 #define ICM20602_SIGNAL_PATH_RESET  0x68
 #define ICM20602_ACCEL_INTEL_CTRL   0x69
 #define ICM20602_USER_CTRL        0x6A  // Bit 7 enable DMP, bit 3 reset DMP
