@@ -139,41 +139,38 @@ void tcp_server(void *pvParameters)
             //detection logic. If know the client message format you should instead impliment logic
             //detect the end of message
             fcntl(cs,F_SETFL,O_NONBLOCK);
-
+        	uint16_t r = 0;
             while(1)
             {
             	const TickType_t xTicksToWait = 1000000 / portTICK_PERIOD_MS;
             	xEventGroupWaitBits(
             	                 SpiEventGroup,    // The event group being tested.
-            	                 BIT0,  // The bits within the event group to wait for.
+            	                 BIT0 | BIT3,  // The bits within the event group to wait for.
             	                 pdTRUE,         // BIT_0 and BIT_4 should be cleared before returning.
             	                 pdFALSE,        // Don't wait for both bits, either bit will do.
             	                 xTicksToWait );
-//            	uint8_t b[100];
-//            	memset(b, 0, 100);
-//            	Accel a = Accel_init_default;
-//            	a.a_x = 34;
-//            	            		a.last_msg = true;
-//            	            		pb_ostream_t stream = pb_ostream_from_buffer(b, 100);
-//            	            		pb_encode(&stream, Accel_fields, &a);
-//            	            		write(cs , b, 100);
-            	uint16_t r = 0;
-            	while(r < BUFF_SIZE)
+            	r = 0;
+            	while(r < sizeof(buff1))
             	{
-            		r = write(cs , buff, BUFF_SIZE);
+            		r = write(cs , buff1, sizeof(buff1));
             	}
-
+            	r = 0;
+//            	while(r < sizeof(buff2))
+//            	{
+//            		r = write(cs , buff2, sizeof(buff2));
+//            	}
             	indic(1);
-            	memset(buff, 0, BUFF_SIZE);
             	xEventGroupSetBits(SpiEventGroup, BIT1);
             	if(xEventGroupGetBits(SpiEventGroup) & BIT3)
             	{
-            		vTaskDelay(500 / portTICK_PERIOD_MS);
             		Accel a = Accel_init_default;
             		a.last_msg = true;
-            		pb_ostream_t stream = pb_ostream_from_buffer(buff, sizeof(buff));
+            		memset(buff1, 0, BUFF_SIZE);
+            		pb_ostream_t stream = pb_ostream_from_buffer(buff1, sizeof(buff1));
             		pb_encode(&stream, Accel_fields, &a);
-            		write(cs , buff, sizeof(buff));
+            		vTaskDelay(100 / portTICK_PERIOD_MS);
+
+            		write(cs , buff1, sizeof(buff1));
             	}
 
             }

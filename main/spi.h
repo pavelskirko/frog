@@ -47,7 +47,7 @@
 
 //SemaphoreHandle_t xSemaphore;
 TaskHandle_t xTaskToNotify;
-uint8_t buff[BUFF_SIZE];
+uint8_t buff1[BUFF_SIZE];
 //uint8_t buff2[BUFF_SIZE];
 EventGroupHandle_t SpiEventGroup;
 void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3);
