@@ -63,8 +63,8 @@ while True:
         data_ar2.append(data)
     
 sock.close()
-accelerations = []
-for el, i in enumerate(data_ar1):
+# accelerations = []
+# for el, i in enumerate(data_ar1):
     # single_acc = []
     # try:
     #     accel.ParseFromString(el)
@@ -82,6 +82,6 @@ for el, i in enumerate(data_ar1):
     #     pass
     # accelerations.append(single_acc)
     print(el)
-for el, i in enumerate(data_ar2):
-    print(el)
+# for el, i in enumerate(data_ar2):
+#     print(el)
 print("Overall, ", len(data_ar1), " + ", len(data_ar2), " elements")

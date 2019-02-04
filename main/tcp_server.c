@@ -155,10 +155,10 @@ void tcp_server(void *pvParameters)
             		r = write(cs , buff1, sizeof(buff1));
             	}
             	r = 0;
-//            	while(r < sizeof(buff2))
-//            	{
-//            		r = write(cs , buff2, sizeof(buff2));
-//            	}
+            	while(r < sizeof(buff2))
+            	{
+            		r = write(cs , buff2, sizeof(buff2));
+            	}
             	indic(1);
             	xEventGroupSetBits(SpiEventGroup, BIT1);
             	if(xEventGroupGetBits(SpiEventGroup) & BIT3)
