@@ -142,7 +142,7 @@ void tcp_server(void *pvParameters)
             fcntl(cs,F_SETFL,O_NONBLOCK);
         	uint16_t r = 0;
         	indic(2);
-        	uint8_t buf[sizeof(Accel)*3];
+        	uint8_t buf[sizeof(Accel)*4];
         	uint8_t n = 0;
 //        	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
 //        	xEventGroupWaitBits(
@@ -165,13 +165,13 @@ void tcp_server(void *pvParameters)
         			pb_decode(&stream_in, Accel_fields, &a4[n]);
         			n++;
         		}
-        		vTaskDelay(150 / portTICK_PERIOD_MS);
+        		vTaskDelay(50 / portTICK_PERIOD_MS);
         		r = 0;
         		while(r < sizeof(buf))
          		{
         			r = write(cs , buf, sizeof(buf));
                 }
-        		vTaskDelay(200 / portTICK_PERIOD_MS);
+//        		vTaskDelay(200 / portTICK_PERIOD_MS);
 
         	}
 

@@ -9,7 +9,7 @@
 
 uint8_t who_am_i[2];
 uint8_t ad_rec;
-Accel a3;
+//Accel a3;
 //size_t heap1;
 //size_t heap2;
 //size_t accel_size;
@@ -174,7 +174,7 @@ void get_data(void *pvParameter)
 //	acc_who_i_am(&spi2, 1);
 	uint32_t num1 = 0;
 	uint32_t num2 = 0;
-	uint8_t buf[sizeof(Accel)*3];
+	uint8_t buf[sizeof(Accel)*4];
 	pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
 	pb_istream_t stream_in = pb_istream_from_buffer(buf, sizeof(buf));
 	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
@@ -195,16 +195,20 @@ void get_data(void *pvParameter)
     	if((check_intr(&spi1) & (1<<6)) && num1 < NUM_OF_FIELDS)
     	{
     		memset(a1, 0, sizeof(Accel));
+    		memset(dma_buf, 0, 256);
     		get_data_acc_fifo(&spi1, dma_buf);
     		timer_get_counter_value(0,0, &time);
-    		a1[0].time = 46;//(uint32_t) ((time - pr_time1) / 80); // to microsec
+    		a1[0].time = (uint32_t) ((time - pr_time1) / 800); // to microsec*10
     		pr_time1 = time;
     		uint8_t count = 0;
     		for(uint8_t i = 0; i < 4; i++)
     		{
-    			a1[i].a_x = i+1;//dma_buf[count];
-    			a1[i].a_y = i+1;//dma_buf[count+1];
-    			a1[i].a_z = i+1;//dma_buf[count+2];
+//    			memcpy(&dma_buf[count], &a1[i].a_x, sizeof(uint16_t));
+//    			memcpy(&dma_buf[count+1], &a1[i].a_y, sizeof(uint16_t));
+//    			memcpy(&dma_buf[count+2], &a1[i].a_z, sizeof(uint16_t));
+    			a1[i].a_x = dma_buf[count];
+    			a1[i].a_y = dma_buf[count+1];
+    			a1[i].a_z = dma_buf[count+2];
     			count = count + 4;
     			a1[i].up = true;
     			a1[i].last_msg = false;
@@ -220,12 +224,12 @@ void get_data(void *pvParameter)
     			stream = pb_ostream_from_buffer(buf, sizeof(buf));
     			pb_encode(&stream, Accel_fields, &a1[i]);
     			esp_partition_write(partition, (sizeof(buf))*(num1+i), buf, sizeof(buf));
-    			memset(buf, 0, sizeof(buf));
-    			memset(&stream_in, 0, sizeof(pb_istream_t));
-    			stream_in = pb_istream_from_buffer(buf, sizeof(buf));
-    			esp_partition_read(partition, (sizeof(buf))*(num1+i), buf, sizeof(buf));
-
-    			pb_decode(&stream_in, Accel_fields, &a3);
+//    			memset(buf, 0, sizeof(buf));
+//    			memset(&stream_in, 0, sizeof(pb_istream_t));
+//    			stream_in = pb_istream_from_buffer(buf, sizeof(buf));
+//    			esp_partition_read(partition, (sizeof(buf))*(num1+i), buf, sizeof(buf));
+//
+//    			pb_decode(&stream_in, Accel_fields, &a3);
 
     		}
     		num1 = num1 +4;
