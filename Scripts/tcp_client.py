@@ -41,7 +41,7 @@ while True:
     # msg = msg.encode()
     # sock.sendall(msg)
     data = sock.recv(1024)
-    print("received: ", len(data))
+    # print("received: ", len(data))
     # if len(data) == 1:
     #     break
     if not data:
@@ -50,9 +50,9 @@ while True:
     try:
         accel.ParseFromString(data)
     except:
-        print("Error")
+        # print("Error")
         continue
-    print(accel)
+    # print(accel)
     if accel.last_msg:
         # print(accel)
         break
@@ -60,7 +60,7 @@ while True:
         res.up.extend([accel])
     else:
         res.down.extend([accel])
-
+print(res)
 sock.close()
 res_encoded = res.SerializeToString()
 file = open("result.txt", "wb+")
@@ -87,4 +87,4 @@ file.close()
     # print(el)
 # for el, i in enumerate(data_ar2):
 #     print(el)
-print("Overall, ", len(data_ar1), " + ", len(data_ar2), " elements")
+print("Overall, ", len(res.up), " + ", len(res.down), " elements")

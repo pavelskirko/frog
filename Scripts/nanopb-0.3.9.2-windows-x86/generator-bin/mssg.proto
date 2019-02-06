@@ -1,9 +1,9 @@
 syntax = "proto3";
 
 message Accel {
-	uint32 a_x = 1;
-	uint32 a_y = 2;
-	uint32 a_z = 3;
+	int32 a_x = 1;
+	int32 a_y = 2;
+	int32 a_z = 3;
 	uint32 time = 4;
 	bool up = 5;
 	bool last_msg = 6;

@@ -32,9 +32,12 @@
 #include "esp_heap_alloc_caps.h"
 #include "mssg.pb.h"
 #include "pb_encode.h"
+#include "pb_decode.h"
 #include "pb_common.h"
 #include "pb.h"
 #include "tcp_server.h"
+#include "esp_heap_caps.h"
+#include "esp_heap_caps_init.h"
 
 #define PIN_NUM_VSPI_Q 19 //miso
 #define PIN_NUM_VSPI_D 23 //mosi
@@ -43,12 +46,13 @@
 #define PIN_NUM_CS1   4 // remote acc
 #define PIN_NUM_CS2   2 // adc
 #define BUFF_SIZE	500
-#define NUM_OF_FIELDS	10
+#define NUM_OF_FIELDS	100
 
 //SemaphoreHandle_t xSemaphore;
 TaskHandle_t xTaskToNotify;
-uint8_t buff1[BUFF_SIZE];
-uint8_t buff2[BUFF_SIZE];
+const esp_partition_t *partition;
+//uint8_t buff1[BUFF_SIZE];
+//uint8_t buff2[BUFF_SIZE];
 EventGroupHandle_t SpiEventGroup;
 void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3);
 uint16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_high);
@@ -57,7 +61,7 @@ void acc_who_i_am(spi_device_handle_t * spi, uint8_t i);
 void adc_setup(spi_device_handle_t * spi2);
 void get_data(void *pvParameter);
 void get_data_adc(void *pvParameter);
-void get_data_acc_fifo(spi_device_handle_t * spi, uint16_t * dma_buf);
+void get_data_acc_fifo(spi_device_handle_t * spi, int16_t * dma_buf);
 uint8_t check_intr(spi_device_handle_t * spi);
 
 

@@ -94,6 +94,6 @@ void app_main(void)
 	 xTaskCreate(tcp_server,"tcp_server",4096,NULL,5,NULL);
 //	 xTaskCreate(tcp_client_task, "tcp_client", 4096, NULL, 5, NULL);
 	 xTaskCreate(ok_blink_task, "ok_blink", 1024*2, NULL, 5, NULL);
-	 xTaskCreate(get_data, "get_data", 8096*4, NULL, 5, NULL);
+	 xTaskCreate(get_data, "get_data", 8096*8, NULL, 5, NULL);
 }
 

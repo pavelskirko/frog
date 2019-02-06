@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\nmssg.proto\"Z\n\x05\x41\x63\x63\x65l\x12\x0b\n\x03\x61_x\x18\x01 \x01(\r\x12\x0b\n\x03\x61_y\x18\x02 \x01(\r\x12\x0b\n\x03\x61_z\x18\x03 \x01(\r\x12\x0c\n\x04time\x18\x04 \x01(\r\x12\n\n\x02up\x18\x05 \x01(\x08\x12\x10\n\x08last_msg\x18\x06 \x01(\x08\"R\n\x0b\x46inalResult\x12\x12\n\x02up\x18\x01 \x03(\x0b\x32\x06.Accel\x12\x14\n\x04\x64own\x18\x02 \x03(\x0b\x32\x06.Accel\x12\x0c\n\x04tens\x18\x03 \x03(\x05\x12\x0b\n\x03log\x18\x04 \x03(\tb\x06proto3')
+  serialized_pb=_b('\n\nmssg.proto\"Z\n\x05\x41\x63\x63\x65l\x12\x0b\n\x03\x61_x\x18\x01 \x01(\x05\x12\x0b\n\x03\x61_y\x18\x02 \x01(\x05\x12\x0b\n\x03\x61_z\x18\x03 \x01(\x05\x12\x0c\n\x04time\x18\x04 \x01(\r\x12\n\n\x02up\x18\x05 \x01(\x08\x12\x10\n\x08last_msg\x18\x06 \x01(\x08\"R\n\x0b\x46inalResult\x12\x12\n\x02up\x18\x01 \x03(\x0b\x32\x06.Accel\x12\x14\n\x04\x64own\x18\x02 \x03(\x0b\x32\x06.Accel\x12\x0c\n\x04tens\x18\x03 \x03(\x05\x12\x0b\n\x03log\x18\x04 \x03(\tb\x06proto3')
 )
 
 
@@ -34,21 +34,21 @@ _ACCEL = _descriptor.Descriptor(
   fields=[
     _descriptor.FieldDescriptor(
       name='a_x', full_name='Accel.a_x', index=0,
-      number=1, type=13, cpp_type=3, label=1,
+      number=1, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='a_y', full_name='Accel.a_y', index=1,
-      number=2, type=13, cpp_type=3, label=1,
+      number=2, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
       name='a_z', full_name='Accel.a_z', index=2,
-      number=3, type=13, cpp_type=3, label=1,
+      number=3, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,

@@ -9,6 +9,10 @@
 
 uint8_t who_am_i[2];
 uint8_t ad_rec;
+Accel a3;
+//size_t heap1;
+//size_t heap2;
+//size_t accel_size;
 
 void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3)
 {
@@ -58,7 +62,7 @@ void accel_init(spi_device_handle_t * spi)
 
 
 	trans.addr=ICM20602_ACCEL_CONFIG;
-	trans.tx_data[0]=(2<<3);
+	trans.tx_data[0]=(1<<3)| (1<<4);
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
@@ -155,27 +159,36 @@ void get_data(void *pvParameter)
 {
 	SpiEventGroup = xEventGroupCreate();
 	xTaskToNotify = NULL;
-	Accel a1[NUM_OF_FIELDS]; //= malloc(NUM_OF_FIELDS * sizeof(Accel));
-	Accel a2[NUM_OF_FIELDS];
+	Accel a1[4]; //= malloc(NUM_OF_FIELDS * sizeof(Accel));
+	Accel a2[4];
 	spi_device_handle_t spi1;
 	spi_device_handle_t spi2;
 	spi_device_handle_t spi3;
+//	heap1 = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+//	heap2 = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+//	accel_size = sizeof(Accel);
 	spi_setup(&spi1, &spi2, &spi3);
 	accel_init(&spi1);
 //	accel_init(&spi2);
-	acc_who_i_am(&spi1, 0);  // test icm-20602: write to who_am_i global variable dec18
-	acc_who_i_am(&spi2, 1);
-	uint16_t num1 = 0;
-	uint16_t num2 = 0;
-	pb_ostream_t stream1 = pb_ostream_from_buffer(buff1, sizeof(buff1));
-	pb_ostream_t stream2 = pb_ostream_from_buffer(buff2, sizeof(buff2));
+//	acc_who_i_am(&spi1, 0);  // test icm-20602: write to who_am_i global variable dec18
+//	acc_who_i_am(&spi2, 1);
+	uint32_t num1 = 0;
+	uint32_t num2 = 0;
+	uint8_t buf[sizeof(Accel)*3];
+	pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
+	pb_istream_t stream_in = pb_istream_from_buffer(buf, sizeof(buf));
+	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
+	esp_partition_erase_range(partition, 0, partition->size);
+
+//	pb_ostream_t stream1 = pb_ostream_from_buffer(buff1, sizeof(buff1));
+//	pb_ostream_t stream2 = pb_ostream_from_buffer(buff2, sizeof(buff2));
 	xTaskToNotify = xTaskGetCurrentTaskHandle();
 
 	uint64_t time;
 	uint64_t pr_time1 = 0;
 	uint64_t pr_time2 = 0;
 //	ulTaskNotifyTake(pdTRUE,  portMAX_DELAY);
-	uint16_t * dma_buf = (uint16_t *)heap_caps_malloc(192, MALLOC_CAP_DMA);
+	int16_t * dma_buf = (int16_t *)heap_caps_malloc(256, MALLOC_CAP_DMA);
 	timer_start(0, 0);
 	while(num1 < NUM_OF_FIELDS || num2 < NUM_OF_FIELDS)
 	{
@@ -184,15 +197,36 @@ void get_data(void *pvParameter)
 
     		get_data_acc_fifo(&spi1, dma_buf);
     		timer_get_counter_value(0,0, &time);
-    		a1[num1].time = (uint32_t) (time - pr_time1);
+    		a1[0].time = (uint32_t) ((time - pr_time1) / 80); // to microsec
     		pr_time1 = time;
+    		uint8_t count = 0;
     		for(uint8_t i = 0; i < 4; i++)
     		{
-    			a1[num1+i].a_x = dma_buf[i];
-    			a1[num1+i].a_y = dma_buf[i+1];
-    			a1[num1+i].a_z = dma_buf[i+2];
-    			a1[num1+i].up = true;
-    			a1[num1+i].last_msg = false;
+    			a1[i].a_x = dma_buf[count];
+    			a1[i].a_y = dma_buf[count+1];
+    			a1[i].a_z = dma_buf[count+2];
+    			count = count + 4;
+    			a1[i].up = true;
+    			a1[i].last_msg = false;
+    			if(i > 0)
+    			{
+    				a1[i].time = 47;
+    			}
+    			size_t data_size;
+//    			pb_get_encoded_size(&data_size, Accel_fields, &a1[num1+i]);
+
+    			memset(buf, 0, sizeof(buf));
+    			memset(&stream, 0, sizeof(pb_ostream_t));
+    			stream = pb_ostream_from_buffer(buf, sizeof(buf));
+    			pb_encode(&stream, Accel_fields, &a1[num1+i]);
+    			esp_partition_write(partition, (sizeof(buf))*(num1+i), buf, sizeof(buf));
+    			memset(buf, 0, sizeof(buf));
+    			memset(&stream_in, 0, sizeof(pb_istream_t));
+    			stream_in = pb_istream_from_buffer(buf, sizeof(buf));
+    			esp_partition_read(partition, (sizeof(buf))*(num1+i), buf, sizeof(buf));
+
+    			pb_decode(&stream_in, Accel_fields, &a3);
+
     		}
     		num1 = num1 +4;
     		num2 = num2 +4;
@@ -210,7 +244,7 @@ void get_data(void *pvParameter)
 //        	a2[num1].a_z = 0;
 //        	a2[num1].last_msg = false;
 //    		timer_get_counter_value(0,0, &a2[num1].time);
-    		vTaskDelay(250 / portTICK_PERIOD_MS);
+//    		vTaskDelay(250 / portTICK_PERIOD_MS);
 //        	indic(1);
 //    		num2++;
     	}
@@ -233,27 +267,32 @@ void get_data(void *pvParameter)
     }
 	xEventGroupSetBits(SpiEventGroup, BIT1);
 	indic(3);
-	for(uint16_t i = 0; i < NUM_OF_FIELDS; i++)
-	{
-		xEventGroupWaitBits(SpiEventGroup,    // The event group being tested.
-		                 BIT1,  // The bits within the event group to wait for.
-		                 pdTRUE,         // should be cleared before returning.
-		                 pdFALSE,        // Don't wait for both bits, either bit will do.
-						 portMAX_DELAY );
-   		memset(buff1, 0, BUFF_SIZE);
-//   		memset(buff2, 0, BUFF_SIZE);
-   		memset(&stream1, 0, sizeof(pb_ostream_t));
-//   		memset(&stream2, 0, sizeof(pb_ostream_t));
-   		stream1 = pb_ostream_from_buffer(buff1, BUFF_SIZE);
-//   		stream2 = pb_ostream_from_buffer(buff2, BUFF_SIZE);
-   		pb_encode(&stream1, Accel_fields, &a1[i]);
-//   		pb_encode(&stream2, Accel_fields, &a2[i]);
-//	    if(pb_encode(&stream1, Accel_fields, &a1[i]) && pb_encode(&stream2, Accel_fields, &a2[i]))
+//	while(1)
+//	{
+//		for(uint16_t i = 0; i < NUM_OF_FIELDS; i++)
 //		{
-	    xEventGroupSetBits(SpiEventGroup, BIT0);
+//			xEventGroupWaitBits(SpiEventGroup,    // The event group being tested.
+//					BIT1,  // The bits within the event group to wait for.
+//					pdTRUE,         // should be cleared before returning.
+//					pdFALSE,        // Don't wait for both bits, either bit will do.
+//					portMAX_DELAY );
+//			memset(buff1, 0, BUFF_SIZE);
+////   		memset(buff2, 0, BUFF_SIZE);
+//			memset(&stream1, 0, sizeof(pb_ostream_t));
+//   		memset(&stream2, 0, sizeof(pb_ostream_t));
+//			stream1 = pb_ostream_from_buffer(buff1, BUFF_SIZE);
+//   		stream2 = pb_ostream_from_buffer(buff2, BUFF_SIZE);
+//			pb_encode(&stream1, Accel_fields, &a1[i]);
+//   		pb_encode(&stream2, Accel_fields, &a2[i]);
+//	    	if(pb_encode(&stream1, Accel_fields, &a1[i]) && pb_encode(&stream2, Accel_fields, &a2[i]))
+//			{
+//			vTaskDelay(10 / portTICK_PERIOD_MS);
+//			xEventGroupSetBits(SpiEventGroup, BIT0);
+//			}
 //		}
-	}
-	xEventGroupSetBits(SpiEventGroup, BIT3);
+//		xEventGroupSetBits(SpiEventGroup, BIT3);
+//	}
+
 
 	while(1)
 	{
@@ -261,15 +300,15 @@ void get_data(void *pvParameter)
 	}
 }
 
-void get_data_acc_fifo(spi_device_handle_t * spi, uint16_t * dma_buf)
+void get_data_acc_fifo(spi_device_handle_t * spi, int16_t * dma_buf)
 {
 
 	spi_transaction_t trans;
 	memset(&trans, 0, sizeof(spi_transaction_t));
 	trans.addr = (0x80 | ICM20602_FIFO_R_W);
 	trans.rx_buffer=dma_buf;
-	trans.length = 192+8;
-	trans.rxlength=192;
+	trans.length = 256+8;
+	trans.rxlength=256;
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	spi_transaction_t * r_trans1;
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans1, portMAX_DELAY));
