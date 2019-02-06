@@ -13,6 +13,7 @@ uint8_t ad_rec;
 //size_t heap1;
 //size_t heap2;
 //size_t accel_size;
+size_t data_size;
 
 void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3)
 {
@@ -187,7 +188,22 @@ void get_data(void *pvParameter)
 	uint64_t time;
 	uint64_t pr_time1 = 0;
 	uint64_t pr_time2 = 0;
-//	ulTaskNotifyTake(pdTRUE,  portMAX_DELAY);
+	ulTaskNotifyTake(pdTRUE,  portMAX_DELAY);
+
+//	*********Blink 3 times*****************************************
+	gpio_set_level(26, 1);
+	vTaskDelay(1000 / portTICK_PERIOD_MS);
+	for(int i = 0; i < 2; i++)
+	{
+	   	gpio_set_level(26, 0);
+	   	vTaskDelay(1000 / portTICK_PERIOD_MS);
+	   	gpio_set_level(26, 1);
+	   	vTaskDelay(1000 / portTICK_PERIOD_MS);
+	}
+	gpio_set_level(26, 0);
+
+//	***************************************************************
+
 	int16_t * dma_buf = (int16_t *)heap_caps_malloc(256, MALLOC_CAP_DMA);
 	timer_start(0, 0);
 	while(num1 < NUM_OF_FIELDS || num2 < NUM_OF_FIELDS)
@@ -217,8 +233,7 @@ void get_data(void *pvParameter)
     			{
     				a1[i].time = 47;
     			}
-//    			size_t data_size;
-//    			pb_get_encoded_size(&data_size, Accel_fields, &a1[num1+i]);
+    			pb_get_encoded_size(&data_size, Accel_fields, &a1[num1+i]);
 
     			memset(buf, 0, sizeof(buf));
     			memset(&stream, 0, sizeof(pb_ostream_t));

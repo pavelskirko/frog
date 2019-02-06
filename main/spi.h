@@ -46,7 +46,7 @@
 #define PIN_NUM_CS1   4 // remote acc
 #define PIN_NUM_CS2   2 // adc
 #define BUFF_SIZE	500
-#define NUM_OF_FIELDS	100
+#define NUM_OF_FIELDS	5000
 
 //SemaphoreHandle_t xSemaphore;
 TaskHandle_t xTaskToNotify;
