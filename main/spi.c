@@ -169,7 +169,7 @@ void get_data(void *pvParameter)
 //	accel_size = sizeof(Accel);
 	spi_setup(&spi1, &spi2, &spi3);
 	accel_init(&spi1);
-//	accel_init(&spi2);
+	accel_init(&spi2);
 //	acc_who_i_am(&spi1, 0);  // test icm-20602: write to who_am_i global variable dec18
 //	acc_who_i_am(&spi2, 1);
 	uint32_t num1 = 0;
@@ -209,6 +209,7 @@ void get_data(void *pvParameter)
     			a1[i].a_x = dma_buf[count];
     			a1[i].a_y = dma_buf[count+1];
     			a1[i].a_z = dma_buf[count+2];
+    			a1[i].number = num1 + i;
     			count = count + 4;
     			a1[i].up = true;
     			a1[i].last_msg = false;
@@ -216,7 +217,7 @@ void get_data(void *pvParameter)
     			{
     				a1[i].time = 47;
     			}
-    			size_t data_size;
+//    			size_t data_size;
 //    			pb_get_encoded_size(&data_size, Accel_fields, &a1[num1+i]);
 
     			memset(buf, 0, sizeof(buf));
@@ -232,42 +233,39 @@ void get_data(void *pvParameter)
 //    			pb_decode(&stream_in, Accel_fields, &a3);
 
     		}
-    		num1 = num1 +4;
+    		num1 = num1+4;
+    	}
+    	if((check_intr(&spi2) & (1<<6)) && num1 < NUM_OF_FIELDS)
+    	{
+    		memset(a1, 0, sizeof(Accel));
+   		    memset(dma_buf, 0, 256);
+   		    get_data_acc_fifo(&spi2, dma_buf);
+   		    timer_get_counter_value(0,0, &time);
+    		a1[0].time = (uint32_t) ((time - pr_time1) / 800); // to microsec*10
+    		pr_time1 = time;
+    		uint8_t count = 0;
+    		for(uint8_t i = 0; i < 4; i++)
+    		{
+    			a1[i].a_x = dma_buf[count];
+    			a1[i].a_y = dma_buf[count+1];
+    			a1[i].a_z = dma_buf[count+2];
+    			a1[i].number = num1 + i;
+    		    count = count + 4;
+    		    a1[i].up = false;
+    		    a1[i].last_msg = false;
+    		    if(i > 0)
+    		    {
+    		    	a1[i].time = 0;
+    		    }
+    		    memset(buf, 0, sizeof(buf));
+    		    memset(&stream, 0, sizeof(pb_ostream_t));
+    		    stream = pb_ostream_from_buffer(buf, sizeof(buf));
+    		    pb_encode(&stream, Accel_fields, &a1[i]);
+    		    esp_partition_write(partition, (sizeof(buf))*(NUM_OF_FIELDS + num1+i), buf, sizeof(buf));
+    		}
     		num2 = num2 +4;
-//    		a1[num1].a_x = get_data_acc(&spi1, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
-//    		a1[num1].a_y = get_data_acc(&spi1, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
-//    		a1[num1].a_z = get_data_acc(&spi1, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
-//    		timer_get_counter_value(0,0, &time);
-//    		a1[num1].time = (uint32_t) (time - pr_time1);
-//    		pr_time1 = time;
-//    		a1[num1].up = true;
-//    		a1[num1].last_msg = false;
-
-//        	a2[num1].a_x = 0;
-//        	a2[num1].a_y = 0;
-//        	a2[num1].a_z = 0;
-//        	a2[num1].last_msg = false;
-//    		timer_get_counter_value(0,0, &a2[num1].time);
-//    		vTaskDelay(250 / portTICK_PERIOD_MS);
-//        	indic(1);
-//    		num2++;
     	}
 
-//    	if((check_intr(&spi2) & 1) && num2 < NUM_OF_FIELDS)
-//    	{
-//
-//    		a2[num2].a_x = get_data_acc(&spi2, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
-//    		a2[num2].a_y = get_data_acc(&spi2, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
-//    		a2[num2].a_z = get_data_acc(&spi2, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
-//    		timer_get_counter_value(0,0, &time);
-//    		a2[num2].time = (uint32_t) (time - pr_time2);
-//    		pr_time2 = time;
-//    		a2[num2].up = false;
-//    		a2[num2].last_msg = false;
-////    		indic(1);
-//    		vTaskDelay(250 / portTICK_PERIOD_MS);
-//    		num2++;
-//    	}
     }
 	xEventGroupSetBits(SpiEventGroup, BIT1);
 	indic(3);

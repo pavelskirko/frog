@@ -154,7 +154,7 @@ void tcp_server(void *pvParameters)
         	pb_istream_t stream_in = pb_istream_from_buffer(buf, sizeof(buf));
 
 
-        	for(uint32_t i = 0; i < NUM_OF_FIELDS; i++)
+        	for(uint32_t i = 0; i < 2 * NUM_OF_FIELDS; i++)
         	{
         		memset(buf, 0, sizeof(buf));
         		esp_partition_read(partition, sizeof(buf)*i, buf, sizeof(buf));
