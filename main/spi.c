@@ -194,17 +194,17 @@ void get_data(void *pvParameter)
 	{
     	if((check_intr(&spi1) & (1<<6)) && num1 < NUM_OF_FIELDS)
     	{
-
+    		memset(a1, 0, sizeof(Accel));
     		get_data_acc_fifo(&spi1, dma_buf);
     		timer_get_counter_value(0,0, &time);
-    		a1[0].time = (uint32_t) ((time - pr_time1) / 80); // to microsec
+    		a1[0].time = 46;//(uint32_t) ((time - pr_time1) / 80); // to microsec
     		pr_time1 = time;
     		uint8_t count = 0;
     		for(uint8_t i = 0; i < 4; i++)
     		{
-    			a1[i].a_x = dma_buf[count];
-    			a1[i].a_y = dma_buf[count+1];
-    			a1[i].a_z = dma_buf[count+2];
+    			a1[i].a_x = i+1;//dma_buf[count];
+    			a1[i].a_y = i+1;//dma_buf[count+1];
+    			a1[i].a_z = i+1;//dma_buf[count+2];
     			count = count + 4;
     			a1[i].up = true;
     			a1[i].last_msg = false;
@@ -218,7 +218,7 @@ void get_data(void *pvParameter)
     			memset(buf, 0, sizeof(buf));
     			memset(&stream, 0, sizeof(pb_ostream_t));
     			stream = pb_ostream_from_buffer(buf, sizeof(buf));
-    			pb_encode(&stream, Accel_fields, &a1[num1+i]);
+    			pb_encode(&stream, Accel_fields, &a1[i]);
     			esp_partition_write(partition, (sizeof(buf))*(num1+i), buf, sizeof(buf));
     			memset(buf, 0, sizeof(buf));
     			memset(&stream_in, 0, sizeof(pb_istream_t));

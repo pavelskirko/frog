@@ -14,8 +14,7 @@ const int CLIENT_CONNECTED_BIT = BIT0;
 const int CLIENT_DISCONNECTED_BIT = BIT1;
 const int AP_STARTED_BIT = BIT2;
 static const char *TAG = "tcp_server";
-Accel a4[3];
-Accel a5[3];
+Accel a4[10];
 
 esp_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -159,16 +158,11 @@ void tcp_server(void *pvParameters)
         	{
         		memset(buf, 0, sizeof(buf));
         		esp_partition_read(partition, sizeof(buf)*i, buf, sizeof(buf));
-        		if( n < 1)
+        		if( n < 10)
         		{
-        			for(uint8_t m = 0; m < 4; m++)
-        			{
-        				pb_decode(&stream_in, Accel_fields, &a4[m]);
-               			vTaskDelay(50 / portTICK_PERIOD_MS);
-               			memset(&stream_in, 0, sizeof(pb_istream_t));
-               			stream_in = pb_istream_from_buffer(buf, sizeof(buf));
-
-        			}
+        			memset(&stream_in, 0, sizeof(pb_istream_t));
+        			stream_in = pb_istream_from_buffer(buf, sizeof(buf));
+        			pb_decode(&stream_in, Accel_fields, &a4[n]);
         			n++;
         		}
         		vTaskDelay(150 / portTICK_PERIOD_MS);
