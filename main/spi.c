@@ -9,6 +9,7 @@
 
 uint8_t who_am_i[2];
 uint8_t ad_rec;
+Accel a1[4];
 //Accel a3;
 //size_t heap1;
 //size_t heap2;
@@ -160,7 +161,7 @@ void get_data(void *pvParameter)
 {
 	SpiEventGroup = xEventGroupCreate();
 	xTaskToNotify = NULL;
-	Accel a1[4]; //= malloc(NUM_OF_FIELDS * sizeof(Accel));
+//	Accel a1[4]; //= malloc(NUM_OF_FIELDS * sizeof(Accel));
 	Accel a2[4];
 	spi_device_handle_t spi1;
 	spi_device_handle_t spi2;

@@ -15,6 +15,8 @@ const int CLIENT_DISCONNECTED_BIT = BIT1;
 const int AP_STARTED_BIT = BIT2;
 static const char *TAG = "tcp_server";
 Accel a4[10];
+Accel a5;
+uint8_t recv_buf=0;
 
 esp_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -96,11 +98,13 @@ void tcp_server(void *pvParameters)
 {
     ESP_LOGI(TAG,"tcp_server task started \n");
     struct sockaddr_in tcpServerAddr;
+    xTaskToNotify = NULL;
+    xTaskToNotify = xTaskGetCurrentTaskHandle();
     tcpServerAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     tcpServerAddr.sin_family = AF_INET;
     tcpServerAddr.sin_port = htons( 3000 );
     int s, r;
-    char recv_buf[64];
+
     char send_buf[64];
     static struct sockaddr_in remote_addr;
     static unsigned int socklen;
@@ -140,104 +144,39 @@ void tcp_server(void *pvParameters)
             //detection logic. If know the client message format you should instead impliment logic
             //detect the end of message
             fcntl(cs,F_SETFL,O_NONBLOCK);
-        	uint16_t r = 0;
         	indic(2);
-        	uint8_t buf[sizeof(Accel)*4];
-        	uint8_t n = 0;
-//        	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
-//        	xEventGroupWaitBits(
-//        	            	                 SpiEventGroup,    // The event group being tested.
-//        	            	                 BIT0 | BIT3,  // The bits within the event group to wait for.
-//        	            	                 pdTRUE,         // BIT_0 and BIT_4 should be cleared before returning.
-//        	            	                 pdFALSE,        // Don't wait for both bits, either bit will do.
-//        	            	                 portMAX_DELAY);
-        	pb_istream_t stream_in = pb_istream_from_buffer(buf, sizeof(buf));
-
-
-        	for(uint32_t i = 0; i < 2 * NUM_OF_FIELDS; i++)
+//        	ulTaskNotifyTake(pdTRUE,  portMAX_DELAY);
+//          	indic(3);
+        	while(1)
         	{
-        		memset(buf, 0, sizeof(buf));
-        		esp_partition_read(partition, sizeof(buf)*i, buf, sizeof(buf));
-        		if( n < 10)
+        		memset(&recv_buf, 0, 1);
+        		do
         		{
-        			memset(&stream_in, 0, sizeof(pb_istream_t));
-        			stream_in = pb_istream_from_buffer(buf, sizeof(buf));
-        			pb_decode(&stream_in, Accel_fields, &a4[n]);
-        			n++;
-        		}
-        		vTaskDelay(50 / portTICK_PERIOD_MS);
-        		r = 0;
-        		while(r < sizeof(buf))
-         		{
-        			r = write(cs , buf, sizeof(buf));
-                }
-//        		vTaskDelay(200 / portTICK_PERIOD_MS);
+        			r = recv(cs, &recv_buf, sizeof(uint8_t), MSG_WAITALL);
+//        			if(r > 0)
+//        			{
+//        				indic(1);
+//        			}
+        		}while(r > 0);
+//        		if(recv_buf != 0)
+//        		{
+//        			indic(1);
+//        		}
 
+        		if(recv_buf == 0x18)
+        		{
+        			indic(1);
+        		}
+        		if(recv_buf == 0xE7)
+        		{
+        			indic(2);
+        		}
+//        		else
+//        		{
+//        			indic(3);
+//        		}
         	}
 
-        	Accel a = Accel_init_default;
-        	            		a.last_msg = true;
-        	            		memset(buf, 0, sizeof(buf));
-        	            		pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
-        	            		pb_encode(&stream, Accel_fields, &a);
-        	            		vTaskDelay(100 / portTICK_PERIOD_MS);
-        	            		xEventGroupSetBits(SpiEventGroup, BIT2);
-        	            		write(cs , buf, sizeof(buf));
-        	            		indic(3);
-        	            		  close(cs);
-
-//            while(1)
-//            {
-////            	const TickType_t xTicksToWait = 1000000 / portTICK_PERIOD_MS;
-//            	xEventGroupWaitBits(
-//            	                 SpiEventGroup,    // The event group being tested.
-//            	                 BIT0 | BIT3,  // The bits within the event group to wait for.
-//            	                 pdTRUE,         // BIT_0 and BIT_4 should be cleared before returning.
-//            	                 pdFALSE,        // Don't wait for both bits, either bit will do.
-//            	                 portMAX_DELAY);
-//            	r = 0;
-//            	if(!(xEventGroupGetBits(SpiEventGroup) & BIT2))
-//            	{
-//            		xEventGroupClearBits(SpiEventGroup, BIT2);
-//            		while(r < sizeof(buff1))
-//            		{
-//            			r = write(cs , buff1, sizeof(buff1));
-//            		}
-//            	}
-//            	r = 0;
-//            	while(r < sizeof(buff2))
-//            	{
-//            		r = write(cs , buff2, sizeof(buff2));
-//            	}
-//            	indic(1);
-//            	vTaskDelay(50 / portTICK_PERIOD_MS);
-//            	xEventGroupSetBits(SpiEventGroup, BIT1);
-//            	if(xEventGroupGetBits(SpiEventGroup) & BIT3)
-//            	{
-//            		Accel a = Accel_init_default;
-//            		a.last_msg = true;
-//            		memset(buff1, 0, BUFF_SIZE);
-//            		pb_ostream_t stream = pb_ostream_from_buffer(buff1, sizeof(buff1));
-//            		pb_encode(&stream, Accel_fields, &a);
-//            		vTaskDelay(100 / portTICK_PERIOD_MS);
-//            		xEventGroupSetBits(SpiEventGroup, BIT2);
-//            		write(cs , buff1, sizeof(buff1));
-//            		indic(3);
-//            		  close(cs);
-//            		break;
-//            	}
-
-//            }
-
-
-//            {
-//                ESP_LOGE(TAG, "... Send failed \n");
-//                close(s);
-//                vTaskDelay(4000 / portTICK_PERIOD_MS);
-//                continue;
-//            }
-//            ESP_LOGI(TAG, "... socket send success");
-//            indic(4);
         }
         ESP_LOGI(TAG, "... server will be opened in 5 seconds");
         vTaskDelay(5000 / portTICK_PERIOD_MS);

@@ -20,6 +20,7 @@ IPV4 = '192.168.0.1'
 family_addr = socket.AF_INET
 host = IPV4
 accel = mssg_pb2.Accel()
+respond = mssg_pb2.Accel()
 try:
     sock = socket.socket(family_addr, socket.SOCK_STREAM)
 except socket.error as msg:
@@ -50,9 +51,12 @@ while True:
     try:
         accel.ParseFromString(data)
     except:
+        respond.success = False
+        sock.sendall(respond.SerializeToString())
         # print("Error")
         continue
-    # print(accel)
+    respond.success = True
+    sock.sendall(respond.SerializeToString())
     if accel.last_msg:
         # print(accel)
         break

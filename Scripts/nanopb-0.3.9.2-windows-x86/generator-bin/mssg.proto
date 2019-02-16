@@ -8,6 +8,7 @@ message Accel {
 	bool up = 5;
 	bool last_msg = 6;
 	uint32 number = 7;
+	bool success = 8;
 }
 
 message FinalResult {

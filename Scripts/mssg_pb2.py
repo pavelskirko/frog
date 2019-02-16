@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\nmssg.proto\"j\n\x05\x41\x63\x63\x65l\x12\x0b\n\x03\x61_x\x18\x01 \x01(\x05\x12\x0b\n\x03\x61_y\x18\x02 \x01(\x05\x12\x0b\n\x03\x61_z\x18\x03 \x01(\x05\x12\x0c\n\x04time\x18\x04 \x01(\r\x12\n\n\x02up\x18\x05 \x01(\x08\x12\x10\n\x08last_msg\x18\x06 \x01(\x08\x12\x0e\n\x06number\x18\x07 \x01(\r\"R\n\x0b\x46inalResult\x12\x12\n\x02up\x18\x01 \x03(\x0b\x32\x06.Accel\x12\x14\n\x04\x64own\x18\x02 \x03(\x0b\x32\x06.Accel\x12\x0c\n\x04tens\x18\x03 \x03(\x05\x12\x0b\n\x03log\x18\x04 \x03(\tb\x06proto3')
+  serialized_pb=_b('\n\nmssg.proto\"{\n\x05\x41\x63\x63\x65l\x12\x0b\n\x03\x61_x\x18\x01 \x01(\x05\x12\x0b\n\x03\x61_y\x18\x02 \x01(\x05\x12\x0b\n\x03\x61_z\x18\x03 \x01(\x05\x12\x0c\n\x04time\x18\x04 \x01(\r\x12\n\n\x02up\x18\x05 \x01(\x08\x12\x10\n\x08last_msg\x18\x06 \x01(\x08\x12\x0e\n\x06number\x18\x07 \x01(\r\x12\x0f\n\x07success\x18\x08 \x01(\x08\"R\n\x0b\x46inalResult\x12\x12\n\x02up\x18\x01 \x03(\x0b\x32\x06.Accel\x12\x14\n\x04\x64own\x18\x02 \x03(\x0b\x32\x06.Accel\x12\x0c\n\x04tens\x18\x03 \x03(\x05\x12\x0b\n\x03log\x18\x04 \x03(\tb\x06proto3')
 )
 
 
@@ -81,6 +81,13 @@ _ACCEL = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='success', full_name='Accel.success', index=7,
+      number=8, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -94,7 +101,7 @@ _ACCEL = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=14,
-  serialized_end=120,
+  serialized_end=137,
 )
 
 
@@ -145,8 +152,8 @@ _FINALRESULT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=122,
-  serialized_end=204,
+  serialized_start=139,
+  serialized_end=221,
 )
 
 _FINALRESULT.fields_by_name['up'].message_type = _ACCEL
