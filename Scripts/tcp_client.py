@@ -34,7 +34,24 @@ except socket.error as msg:
         sys.exit(1)
 data_ar1 = []
 data_ar2 = []
+b_success = b'\x18' # bytes(int("11111111", 2))
+b_fail = b'\xe7' # 11100111
+n_fail = 0
+n_sucss = 0
 res = mssg_pb2.FinalResult()
+
+# a = mssg_pb2.Accel()
+# a.last_msg = False;
+# a.a_x = -16384;
+# a.a_y = 6;
+# a.a_z = 16384;
+# a.time = 1;
+# a.number = 1;
+# a.up = True;
+
+# data_encoded = a.SerializeToString()
+
+
 while True:
     # msg = input('Enter message to send: ')
     # assert isinstance(msg, str)
@@ -47,12 +64,28 @@ while True:
     if not data:
         continue
         print("there is no data")
+    # if(data == data_encoded):
+    #     print("the same")
+    # else:
+        # print("not the same")
+        # print(data)
+        # print(data_encoded)
+
     try:
         accel.ParseFromString(data)
-    except:
-        # print("Error")
+    except Exception as error:
+        print('Caught this error: ' + repr(error))
+        print("data = ", len(data))
+        print(data)
+        sock.sendall(b_success)
+        print(n_fail, n_sucss)
+        n_fail += 1
         continue
     # print(accel)
+    sock.sendall(b_success)
+    n_sucss += 1
+    print(n_fail, n_sucss)
+    print(data)
     if accel.last_msg:
         # print(accel)
         break

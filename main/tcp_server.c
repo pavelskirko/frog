@@ -14,7 +14,11 @@ const int CLIENT_CONNECTED_BIT = BIT0;
 const int CLIENT_DISCONNECTED_BIT = BIT1;
 const int AP_STARTED_BIT = BIT2;
 static const char *TAG = "tcp_server";
-Accel a4[10];
+Accel a4;
+//size_t buf_size;
+//size_t s;
+//size_t delta;
+
 
 esp_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -92,7 +96,7 @@ void indic(int count)
     vTaskDelay(50 / portTICK_PERIOD_MS);
 }
 
-void tcp_server(void *pvParameters)
+void IRAM_ATTR tcp_server(void *pvParameters)
 {
     ESP_LOGI(TAG,"tcp_server task started \n");
     struct sockaddr_in tcpServerAddr;
@@ -100,8 +104,8 @@ void tcp_server(void *pvParameters)
     tcpServerAddr.sin_family = AF_INET;
     tcpServerAddr.sin_port = htons( 3000 );
     int s, r;
-    char recv_buf[64];
-    char send_buf[64];
+    uint8_t buf[sizeof(Accel)*2];
+    uint8_t recv_buf=0;
     static struct sockaddr_in remote_addr;
     static unsigned int socklen;
     socklen = sizeof(remote_addr);
@@ -142,8 +146,9 @@ void tcp_server(void *pvParameters)
             fcntl(cs,F_SETFL,O_NONBLOCK);
         	uint16_t r = 0;
         	indic(2);
-        	uint8_t buf[sizeof(Accel)*4];
-        	uint8_t n = 0;
+        	uint16_t delay = 0;
+
+//        	uint8_t n = 0;
 //        	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
 //        	xEventGroupWaitBits(
 //        	            	                 SpiEventGroup,    // The event group being tested.
@@ -151,40 +156,123 @@ void tcp_server(void *pvParameters)
 //        	            	                 pdTRUE,         // BIT_0 and BIT_4 should be cleared before returning.
 //        	            	                 pdFALSE,        // Don't wait for both bits, either bit will do.
 //        	            	                 portMAX_DELAY);
-        	pb_istream_t stream_in = pb_istream_from_buffer(buf, sizeof(buf));
-
+//        	pb_istream_t stream_in = pb_istream_from_buffer(buf, sizeof(buf));
+        	Accel a = Accel_init_default;
+        	pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
 
         	for(uint32_t i = 0; i < 2 * NUM_OF_FIELDS; i++)
         	{
-        		memset(buf, 0, sizeof(buf));
-        		esp_partition_read(partition, sizeof(buf)*i, buf, sizeof(buf));
-        		if( n < 10)
+        		if(data_size[i] == 0)
         		{
-        			memset(&stream_in, 0, sizeof(pb_istream_t));
-        			stream_in = pb_istream_from_buffer(buf, sizeof(buf));
-        			pb_decode(&stream_in, Accel_fields, &a4[n]);
-        			n++;
+        		    continue;
         		}
-        		vTaskDelay(50 / portTICK_PERIOD_MS);
-        		r = 0;
-        		while(r < sizeof(buf))
-         		{
-        			r = write(cs , buf, sizeof(buf));
-                }
+        		while(1)
+        		{
+            		memset(buf, 0, sizeof(buf));
+            		esp_partition_read(partition, sizeof(buf)*i, buf, sizeof(buf));
+//            		memset(&stream_in, 0, sizeof(pb_istream_t));
+//            		stream_in = pb_istream_from_buffer(buf, sizeof(buf));
+//            		if (!pb_decode(&stream_in, Accel_fields, &a4))
+//            		{
+//            			continue;
+//            		}
+//               		a.last_msg = false;
+//               		a.a_x = -32768;
+//               		a.a_y = 6;
+//               		a.a_z = 32768;
+//               		a.time = 1;
+//               		a.number = 1;
+//               		a.up = true;
+//               		buf_size = sizeof(buf);
+//               		pb_get_encoded_size(&data_size, Accel_fields, &a);
+//               		memset(buf, 0, sizeof(buf));
+//               		pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
+//               		pb_encode(&stream, Accel_fields, &a);
+//               		memset(&stream_in, 0, sizeof(pb_istream_t));
+//               		stream_in = pb_istream_from_buffer(buf, sizeof(buf));
+//               		pb_decode(&stream_in, Accel_fields, &a4);
+//               		s = stream.bytes_written;
+//               		delta = data_size - s;
+            		vTaskDelay(delay / portTICK_PERIOD_MS);
+
+        			s = 0;
+        			r = 0;
+        			while(s < data_size[i])
+        			{
+        				s = write(cs , buf, data_size[i]);
+        			}
+
+        			while(1)
+        			{
+        				memset(&recv_buf, 0, 1);
+        				r = recv(cs, &recv_buf, sizeof(uint8_t), MSG_WAITALL);
+        				if(recv_buf == 0)
+        				{
+        					continue;
+        				}
+        				else if(recv_buf == 0x18 || recv_buf == 0xE7)
+        				{
+        					break; // received right response
+        				}
+        			}
+        			if(recv_buf == 0x18)
+        			{
+        				if(delay > 0)
+        				{
+        					delay--;
+        				}
+//        				indic(1);
+        				break; // success
+        			}
+        			else
+        			{
+        				delay++;
+        				continue; // failure
+        			}
+        		}
 //        		vTaskDelay(200 / portTICK_PERIOD_MS);
 
         	}
-
-        	Accel a = Accel_init_default;
-        	            		a.last_msg = true;
-        	            		memset(buf, 0, sizeof(buf));
-        	            		pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
-        	            		pb_encode(&stream, Accel_fields, &a);
-        	            		vTaskDelay(100 / portTICK_PERIOD_MS);
-        	            		xEventGroupSetBits(SpiEventGroup, BIT2);
-        	            		write(cs , buf, sizeof(buf));
-        	            		indic(3);
-        	            		  close(cs);
+        	while(1)
+        	{
+        	a = (Accel)Accel_init_default;
+       		a.last_msg = true;
+       		memset(buf, 0, sizeof(buf));
+       		stream = pb_ostream_from_buffer(buf, sizeof(buf));
+       		pb_encode(&stream, Accel_fields, &a);
+       		vTaskDelay(100 / portTICK_PERIOD_MS);
+       		xEventGroupSetBits(SpiEventGroup, BIT2);
+       		s = 0;
+       		r = 0;
+   			while(s < stream.bytes_written)
+  			{
+   				s = write(cs , buf, stream.bytes_written);
+   			}
+   			while(1)
+   			{
+   				memset(&recv_buf, 0, 1);
+   				r = recv(cs, &recv_buf, sizeof(uint8_t), MSG_WAITALL);
+   				if(recv_buf == 0)
+				{
+ 					continue;
+   				}
+   				else if(recv_buf == 0x18 || recv_buf == 0xE7)
+ 				{
+   					break; // received right response
+				}
+   			}
+     			if(recv_buf == 0x18)
+       			{
+     				indic(1);
+     				break; // success
+       			}
+    			else
+       			{
+    				continue; // failure
+      			}
+        	}
+           	indic(3);
+       		close(cs);
 
 //            while(1)
 //            {

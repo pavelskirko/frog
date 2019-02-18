@@ -46,12 +46,11 @@
 #define PIN_NUM_CS1   4 // remote acc
 #define PIN_NUM_CS2   2 // adc
 #define BUFF_SIZE	500
-#define NUM_OF_FIELDS	5000
-
+#define NUM_OF_FIELDS	8000
 //SemaphoreHandle_t xSemaphore;
 TaskHandle_t xTaskToNotify;
 const esp_partition_t *partition;
-//uint8_t buff1[BUFF_SIZE];
+uint8_t data_size[2 * NUM_OF_FIELDS];
 //uint8_t buff2[BUFF_SIZE];
 EventGroupHandle_t SpiEventGroup;
 void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3);

@@ -1,3 +1,4 @@
+
 #include "freertos/FreeRTOS.h"
 #include "esp_wifi.h"
 #include "esp_system.h"
@@ -21,7 +22,7 @@ static const char *TAG = "frog";
 
 #define BUTTON_GPIO	35
 
-void ok_blink_task(void *pvParameters)
+void IRAM_ATTR ok_blink_task(void *pvParameters)
 {
 	int level1 = 0;
 	while (1)
@@ -96,4 +97,3 @@ void app_main(void)
 	 xTaskCreate(ok_blink_task, "ok_blink", 1024*2, NULL, 5, NULL);
 	 xTaskCreate(get_data, "get_data", 8096*8, NULL, 5, NULL);
 }
-
