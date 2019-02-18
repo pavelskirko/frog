@@ -183,24 +183,28 @@ void IRAM_ATTR get_data(void *pvParameter)
 
 //	pb_ostream_t stream1 = pb_ostream_from_buffer(buff1, sizeof(buff1));
 //	pb_ostream_t stream2 = pb_ostream_from_buffer(buff2, sizeof(buff2));
-	xTaskToNotify = xTaskGetCurrentTaskHandle();
+//	xTaskToNotify = xTaskGetCurrentTaskHandle();
 
 	uint64_t time;
 //	uint64_t pr_time1 = 0;
 //	uint64_t pr_time2 = 0;
 //	ulTaskNotifyTake(pdTRUE,  portMAX_DELAY);
-
+	xEventGroupWaitBits(SpiEventGroup,    // The event group being tested.
+						BIT5,  // The bits within the event group to wait for.
+						pdTRUE,         // should be cleared before returning.
+						pdFALSE,        // Don't wait for both bits, either bit will do.
+						portMAX_DELAY );
 //	*********Blink 3 times*****************************************
-//	gpio_set_level(26, 1);
-//	vTaskDelay(1000 / portTICK_PERIOD_MS);
-//	for(int i = 0; i < 2; i++)
-//	{
-//	   	gpio_set_level(26, 0);
-//	   	vTaskDelay(1000 / portTICK_PERIOD_MS);
-//	   	gpio_set_level(26, 1);
-//	   	vTaskDelay(1000 / portTICK_PERIOD_MS);
-//	}
-//	gpio_set_level(26, 0);
+	gpio_set_level(26, 1);
+	vTaskDelay(1000 / portTICK_PERIOD_MS);
+	for(int i = 0; i < 2; i++)
+	{
+	   	gpio_set_level(26, 0);
+	   	vTaskDelay(1000 / portTICK_PERIOD_MS);
+	   	gpio_set_level(26, 1);
+	   	vTaskDelay(1000 / portTICK_PERIOD_MS);
+	}
+	gpio_set_level(26, 0);
 
 //	***************************************************************
 

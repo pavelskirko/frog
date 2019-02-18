@@ -13,6 +13,7 @@
 #include "spi.h"
 #include "esp_heap_caps.h"
 #include "esp_heap_caps_init.h"
+#include "button.h"
 
 static const char *TAG = "frog";
 
@@ -34,27 +35,27 @@ void IRAM_ATTR ok_blink_task(void *pvParameters)
 	}
 
 }
-void IRAM_ATTR button_isr_handler(void* arg)
-{
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-	vTaskNotifyGiveFromISR(xTaskToNotify, &xHigherPriorityTaskWoken);
-	xTaskToNotify = NULL;
+//void IRAM_ATTR button_isr_handler(void* arg)
+//{
+//	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//	vTaskNotifyGiveFromISR(xTaskToNotify, &xHigherPriorityTaskWoken);
+//	xTaskToNotify = NULL;
+//
+//}
 
-}
-
-void button_init()
-{
-	gpio_config_t pin_config;
-	pin_config.pin_bit_mask = GPIO_SEL_35;
-	pin_config.mode = GPIO_MODE_INPUT;
-	pin_config.pull_up_en = GPIO_PULLUP_DISABLE;
-	pin_config.pull_down_en = GPIO_PULLDOWN_DISABLE;
-	pin_config.intr_type = GPIO_PIN_INTR_NEGEDGE;
-	gpio_config(&pin_config);
-	gpio_install_isr_service(0);
-	gpio_isr_handler_add(GPIO_NUM_35, button_isr_handler, NULL);
-//	xSemaphore = xSemaphoreCreateBinary();
-}
+//void button_init()
+//{
+//	gpio_config_t pin_config;
+//	pin_config.pin_bit_mask = GPIO_SEL_35;
+//	pin_config.mode = GPIO_MODE_INPUT;
+//	pin_config.pull_up_en = GPIO_PULLUP_DISABLE;
+//	pin_config.pull_down_en = GPIO_PULLDOWN_DISABLE;
+//	pin_config.intr_type = GPIO_PIN_INTR_NEGEDGE;
+//	gpio_config(&pin_config);
+//	gpio_install_isr_service(0);
+//	gpio_isr_handler_add(GPIO_NUM_35, button_isr_handler, NULL);
+////	xSemaphore = xSemaphoreCreateBinary();
+//}
 
 void timer_setup()
 {
@@ -83,7 +84,7 @@ void app_main(void)
 	ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
 	gpio_set_direction(27, GPIO_MODE_OUTPUT);
 	gpio_set_direction(26, GPIO_MODE_OUTPUT);
-	button_init();
+//	button_init();
 	ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
 	wifi_event_group = xEventGroupCreate();
 	start_dhcp_server();
@@ -96,4 +97,16 @@ void app_main(void)
 //	 xTaskCreate(tcp_client_task, "tcp_client", 4096, NULL, 5, NULL);
 	 xTaskCreate(ok_blink_task, "ok_blink", 1024*2, NULL, 5, NULL);
 	 xTaskCreate(get_data, "get_data", 8096*8, NULL, 5, NULL);
+
+	 button_event_t ev;
+	 QueueHandle_t button_events = button_init(PIN_BIT(BUTTON_GPIO));
+	 while (true) {
+	     if (xQueueReceive(button_events, &ev, 1000/portTICK_PERIOD_MS)) {
+	         if ((ev.pin == BUTTON_GPIO) && (ev.event == BUTTON_DOWN)) {
+	        	 xEventGroupSetBits(SpiEventGroup, BIT5);
+	        	 vTaskSuspend(button_task_handle);
+	         }
+
+	     }
+	 }
 }
