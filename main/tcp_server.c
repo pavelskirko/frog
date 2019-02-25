@@ -19,6 +19,7 @@ Accel a4;
 //size_t s;
 //size_t delta;
 
+uint8_t buf[sizeof(Accel)*2];
 
 esp_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -104,7 +105,7 @@ void IRAM_ATTR tcp_server(void *pvParameters)
     tcpServerAddr.sin_family = AF_INET;
     tcpServerAddr.sin_port = htons( 3000 );
     int s, r;
-    uint8_t buf[sizeof(Accel)*2];
+
     uint8_t recv_buf=0;
     static struct sockaddr_in remote_addr;
     static unsigned int socklen;
@@ -193,7 +194,7 @@ void IRAM_ATTR tcp_server(void *pvParameters)
 //               		pb_decode(&stream_in, Accel_fields, &a4);
 //               		s = stream.bytes_written;
 //               		delta = data_size - s;
-            		vTaskDelay(delay / portTICK_PERIOD_MS);
+//            		vTaskDelay(1 / portTICK_PERIOD_MS);
 
         			s = 0;
         			r = 0;
@@ -217,16 +218,16 @@ void IRAM_ATTR tcp_server(void *pvParameters)
         			}
         			if(recv_buf == 0x18)
         			{
-        				if(delay > 0)
-        				{
-        					delay--;
-        				}
+//        				if(delay > 0)
+//        				{
+//        					delay--;
+//        				}
 //        				indic(1);
         				break; // success
         			}
         			else
         			{
-        				delay++;
+//        				delay++;
         				continue; // failure
         			}
         		}

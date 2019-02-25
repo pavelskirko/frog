@@ -7,14 +7,16 @@
 #include "spi.h"
 
 
-uint8_t who_am_i[2];
-uint8_t ad_rec;
-
+//uint8_t who_am_i[2];
+//uint8_t ad_rec[65];
+//uint32_t adc_buf[10];
 //Accel a3;
 //size_t heap1;
 //size_t heap2;
 //size_t accel_size;
 //size_t data_size;
+
+	uint8_t buf[sizeof(Accel)*2];
 
 void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3)
 {
@@ -33,7 +35,7 @@ void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_devic
 						.mode=0,                                //SPI mode 0
 				        .spics_io_num=PIN_NUM_CS0,               //CS pin
 				        .queue_size=70,  	//We want to be able to queue 7 transactions at a time
-						.flags=0,//SPI_DEVICE_POSITIVE_CS,
+						.flags=0,
 				    };
 	ESP_ERROR_CHECK(spi_bus_initialize(VSPI_HOST, &buscfg, 1));
 	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg, spi1));
@@ -94,19 +96,19 @@ void accel_init(spi_device_handle_t * spi)
 
 }
 
-void acc_who_i_am(spi_device_handle_t * spi, uint8_t i)
-{
-	spi_transaction_t trans;
-	memset(&trans, 0, sizeof(spi_transaction_t));
-	trans.addr = (0x80 | 0x1A);//ICM20602_WHO_AM_I);
-	trans.length = 16;
-	trans.rxlength=8;
-	trans.rx_data[0] = 1;
-	trans.flags = SPI_TRANS_USE_RXDATA;
-	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
-	spi_transaction_t * r_trans;
-	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
-	who_am_i[i] = r_trans->rx_data[0];
+//void acc_who_i_am(spi_device_handle_t * spi, uint8_t i)
+//{
+//	spi_transaction_t trans;
+//	memset(&trans, 0, sizeof(spi_transaction_t));
+//	trans.addr = (0x80 | ICM20602_WHO_AM_I);
+//	trans.length = 16;
+//	trans.rxlength=8;
+//	trans.rx_data[0] = 1;
+//	trans.flags = SPI_TRANS_USE_RXDATA;
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+//	spi_transaction_t * r_trans;
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	who_am_i[i] = r_trans->rx_data[0];
 
 //	trans.addr = (0x80 | ICM20602_ACCEL_CONFIG);
 //	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
@@ -120,48 +122,38 @@ void acc_who_i_am(spi_device_handle_t * spi, uint8_t i)
 
 //	who_am_i[i] = r_trans->rx_data[0];
 
-}
+//}
 
 
-void adc_setup(spi_device_handle_t * spi2)
-{
-	spi_device_interface_config_t devcfg2={
-						        .clock_speed_hz=10*1000*1000,           //Clock out at 10 MHz
-						        .command_bits=8,
-								.address_bits=8,
-								.mode=0,                                //SPI mode 0
-						        .spics_io_num=PIN_NUM_CS2,               //CS pin
-						        .queue_size=7,  	//We want to be able to queue 7 transactions at a time
-								.flags=0,//
-						    };
-	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg2, spi2));
-	spi_transaction_t trans;
-	memset(&trans, 0, sizeof(spi_transaction_t));
-	trans.tx_data[0] = (0x7C & AD_7797_MODE); // write to MODE
-	trans.tx_data[1] = 0;
-	trans.tx_data[2] = 0xF; // slowest update rate
-	trans.length = 24;
-	trans.flags = SPI_TRANS_USE_TXDATA;
-	ESP_ERROR_CHECK(spi_device_queue_trans(*spi2, &trans, portMAX_DELAY));
-	spi_transaction_t * r_trans;
-	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi2, &r_trans, portMAX_DELAY));
-	memset(&trans, 0, sizeof(spi_transaction_t));
-	trans.tx_data[0] = (0x7C & AD_7797_CONFG); // write to configuration
-	trans.tx_data[1] = (1<<3) | 0x3; // unipolar
-	trans.tx_data[2] = 0xF;
-	trans.length = 24;
-	trans.flags = SPI_TRANS_USE_TXDATA;
-	ESP_ERROR_CHECK(spi_device_queue_trans(*spi2, &trans, portMAX_DELAY));
-	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi2, &r_trans, portMAX_DELAY));
+//void adc_setup(spi_device_handle_t * spi)
+//{
+//	spi_transaction_t trans;
+//	memset(&trans, 0, sizeof(spi_transaction_t));
+//	trans.addr = (AD_7797_MODE); // write to MODE
+//	trans.tx_data[0] = 0;
+//	trans.tx_data[1] = 0xF; // slowest update rate
+//	trans.length = 24;
+//	trans.flags = SPI_TRANS_USE_TXDATA;
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+//	spi_transaction_t * r_trans;
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	memset(&trans, 0, sizeof(spi_transaction_t));
+//	trans.addr = (AD_7797_CONFG); // write to configuration
+//	trans.tx_data[0] = (1<<4);
+//	trans.tx_data[1] = (1<<0) | (1<<1) | (1<<2); // bipolar
+//	trans.length = 24;
+//	trans.flags = SPI_TRANS_USE_TXDATA;
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//
+//
+//}
 
-
-}
-
-void IRAM_ATTR get_data(void *pvParameter)
+void get_data(void *pvParameter)
 {
 	SpiEventGroup = xEventGroupCreate();
 	xTaskToNotify = NULL;
-	Accel a1[4]; //= malloc(NUM_OF_FIELDS * sizeof(Accel));
+	Accel a1[4];
 	spi_device_handle_t spi1;
 	spi_device_handle_t spi2;
 	spi_device_handle_t spi3;
@@ -171,21 +163,22 @@ void IRAM_ATTR get_data(void *pvParameter)
 	spi_setup(&spi1, &spi2, &spi3);
 	accel_init(&spi1);
 	accel_init(&spi2);
+//	adc_setup(&spi3);
 //	acc_who_i_am(&spi1, 0);  // test icm-20602: write to who_am_i global variable dec18
 //	acc_who_i_am(&spi2, 1);
 	uint32_t num1 = 0;
 	uint32_t num2 = 0;
-	uint8_t buf[sizeof(Accel)*2];
+
 	pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
 //	pb_istream_t stream_in = pb_istream_from_buffer(buf, sizeof(buf));
-	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
-	esp_partition_erase_range(partition, 0, partition->size);
+
 
 //	pb_ostream_t stream1 = pb_ostream_from_buffer(buff1, sizeof(buff1));
 //	pb_ostream_t stream2 = pb_ostream_from_buffer(buff2, sizeof(buff2));
 //	xTaskToNotify = xTaskGetCurrentTaskHandle();
 
 	uint64_t time;
+//	get_data_adc(&spi3, adc_buf);
 //	uint64_t pr_time1 = 0;
 //	uint64_t pr_time2 = 0;
 //	ulTaskNotifyTake(pdTRUE,  portMAX_DELAY);
@@ -207,7 +200,8 @@ void IRAM_ATTR get_data(void *pvParameter)
 	gpio_set_level(26, 0);
 
 //	***************************************************************
-
+	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
+	esp_partition_erase_range(partition, 0, partition->size);
 	int16_t * dma_buf = (int16_t *)heap_caps_malloc(256, MALLOC_CAP_DMA);
 	timer_start(0, 0);
 	while(num1 < NUM_OF_FIELDS || num2 < NUM_OF_FIELDS)
@@ -267,7 +261,7 @@ void IRAM_ATTR get_data(void *pvParameter)
     		}
     		num1 = num1+4;
     	}
-    	if((check_intr(&spi2) & (1<<6)) && num1 < NUM_OF_FIELDS)
+    	if((check_intr(&spi2) & (1<<6)) && num2 < NUM_OF_FIELDS)
     	{
     		memset(a1, 0, sizeof(Accel));
    		    memset(dma_buf, 0, 256);
@@ -280,7 +274,7 @@ void IRAM_ATTR get_data(void *pvParameter)
     			a1[i].a_x = dma_buf[count];
     			a1[i].a_y = dma_buf[count+1];
     			a1[i].a_z = dma_buf[count+2];
-    			a1[i].number = num1 + i;
+    			a1[i].number = num2 + i;
     		    count = count + 4;
     		    a1[i].up = false;
     		    a1[i].last_msg = false;
@@ -368,8 +362,8 @@ uint8_t check_intr(spi_device_handle_t * spi)
 uint16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_high)
 {
 	spi_transaction_t trans;
-	uint32_t low_b;//= heap_caps_malloc(32, MALLOC_CAP_DMA);
-	uint32_t high_b;//= heap_caps_malloc(32, MALLOC_CAP_DMA);
+	uint32_t low_b;
+	uint32_t high_b;
 
 	memset(&trans, 0, sizeof(spi_transaction_t));
 	trans.addr = (0x80 | addr_low);
@@ -384,52 +378,85 @@ uint16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_
 	trans.rx_buffer=&high_b;
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans1, portMAX_DELAY));
-//	uint8_t h = (uint8_t)*high_b;
-//	uint8_t l = (uint8_t)*low_b;
 	uint16_t x = low_b | (high_b<<8);
-//	heap_caps_free(low_b);
-//	heap_caps_free(high_b);
+
 	return(x);
 }
 
-void get_data_adc(void *pvParameter)
-{
-	spi_device_handle_t spi2;
-//	spi_bus_config_t buscfg={
-//				        .miso_io_num=PIN_NUM_VSPI_Q,
-//				        .mosi_io_num=PIN_NUM_VSPI_D,
-//				        .sclk_io_num=PIN_NUM_CLK,
-//				        .quadwp_io_num=-1,
-//				        .quadhd_io_num=-1,
-//				        .max_transfer_sz=4094,
-//				    };
-//	spi_device_interface_config_t devcfg={
-//				        .clock_speed_hz=10*1000,           //Clock out at 10 MHz
-//				        .command_bits=8,
-//						.address_bits=8,
-//						.mode=0,                                //SPI mode 0
-//				        .spics_io_num=PIN_NUM_CS2,               //CS pin
-//				        .queue_size=7,  	//We want to be able to queue 7 transactions at a time
-//						.flags=0,//SPI_DEVICE_POSITIVE_CS,
-//				    };
-//	ESP_ERROR_CHECK(spi_bus_initialize(VSPI_HOST, &buscfg, 1));
-//	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg, &spi2));
-	adc_setup(&spi2);
-	spi_transaction_t trans[2];
-	memset(&trans[0], 0, sizeof(spi_transaction_t));
-	trans[0].tx_data[0] = (0x7C & ((1<<6) | AD_7797_ID )); // read id
-	trans[0].length = 8;
-	trans[0].flags = SPI_TRANS_USE_TXDATA;
-	memset(&trans[1], 0, sizeof(spi_transaction_t));
-	trans[1].rxlength=8;
-	trans[1].length = 8;
-	trans[1].rx_data[0] = 0;
-	trans[1].flags = SPI_TRANS_USE_RXDATA;
-	ESP_ERROR_CHECK(spi_device_queue_trans(spi2, &trans[0], portMAX_DELAY));
-	ESP_ERROR_CHECK(spi_device_queue_trans(spi2, &trans[1], portMAX_DELAY));
-	spi_transaction_t * r_trans;
-	ESP_ERROR_CHECK(spi_device_get_trans_result(spi2, &r_trans, portMAX_DELAY));
-	ESP_ERROR_CHECK(spi_device_get_trans_result(spi2, &r_trans, portMAX_DELAY));
-	//	ESP_ERROR_CHECK(spi_device_get_trans_result(spi1, &r_trans, portMAX_DELAY));
-	ad_rec = r_trans->rx_data[0];
-}
+//void get_data_adc(spi_device_handle_t *spi, uint32_t * buf)
+//{
+//	spi_transaction_t trans[2];
+//	memset(&trans[0], 0, sizeof(spi_transaction_t));
+//	trans[0].tx_data[0] = 0xFF;
+//	trans[0].tx_data[1] = 0xFF;
+//	trans[0].tx_data[2] = 0xFF;
+//	trans[0].tx_data[3] = 0xFF;
+//	trans[0].length = 32;
+//	trans[0].flags = SPI_TRANS_USE_TXDATA;
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[0], portMAX_DELAY));
+//	spi_transaction_t * r_trans;
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//
+//	memset(&trans[0], 0, sizeof(spi_transaction_t));
+//	trans[0].tx_data[0] = 0x60; //(0x7C & ((1<<6) | AD_7797_ID )); // read id
+//	trans[0].length = 8;
+//	trans[0].flags = SPI_TRANS_USE_TXDATA;
+//	memset(&trans[1], 0, sizeof(spi_transaction_t));
+//	trans[1].rxlength=8;
+//	trans[1].length = 8;
+//	trans[1].rx_data[0] = 0;
+//	trans[1].flags = SPI_TRANS_USE_RXDATA;
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[0], portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[1], portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	ad_rec[0] = r_trans->rx_data[0];
+
+//	memset(&trans[0], 0, sizeof(spi_transaction_t));
+//	trans[0].tx_data[0] = (0x7C & ((1<<6) | AD_7797_MODE )); // read id
+//	trans[0].length = 8;
+//	trans[0].flags = SPI_TRANS_USE_TXDATA;
+//	memset(&trans[1], 0, sizeof(spi_transaction_t));
+//	trans[1].rxlength=16;
+//	trans[1].length = 16;
+//	trans[1].flags = SPI_TRANS_USE_RXDATA;
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[0], portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[1], portMAX_DELAY));
+////	spi_transaction_t * r_trans;
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	ad_rec[1] = r_trans->rx_data[0];
+//	ad_rec[2] = r_trans->rx_data[1];
+//
+//	memset(&trans[0], 0, sizeof(spi_transaction_t));
+//	trans[0].tx_data[0] = (0x7C & ((1<<6) | AD_7797_CONFG )); // read id
+//	trans[0].length = 8;
+//	trans[0].flags = SPI_TRANS_USE_TXDATA;
+//	memset(&trans[1], 0, sizeof(spi_transaction_t));
+//	trans[1].rxlength=16;
+//	trans[1].length = 16;
+//	trans[1].flags = SPI_TRANS_USE_RXDATA;
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[0], portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[1], portMAX_DELAY));
+////	spi_transaction_t * r_trans;
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	ad_rec[3] = r_trans->rx_data[0];
+//	ad_rec[4] = r_trans->rx_data[1];
+//
+//	memset(&trans[0], 0, sizeof(spi_transaction_t));
+//	trans[0].tx_data[0] = (0x7C & ((1<<6) | AD_7797_STATUS )); // read id
+//	trans[0].length = 8;
+//	trans[0].flags = SPI_TRANS_USE_TXDATA;
+//	memset(&trans[1], 0, sizeof(spi_transaction_t));
+//	trans[1].rxlength=16;
+//	trans[1].length = 16;
+//	trans[1].flags = SPI_TRANS_USE_RXDATA;
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[0], portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[1], portMAX_DELAY));
+////	spi_transaction_t * r_trans;
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	ad_rec[5] = r_trans->rx_data[0];
+
+//}

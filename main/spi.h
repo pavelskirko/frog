@@ -46,7 +46,7 @@
 #define PIN_NUM_CS1   4 // remote acc
 #define PIN_NUM_CS2   2 // adc
 #define BUFF_SIZE	500
-#define NUM_OF_FIELDS	8000
+#define NUM_OF_FIELDS	3
 //SemaphoreHandle_t xSemaphore;
 TaskHandle_t xTaskToNotify;
 const esp_partition_t *partition;
@@ -59,7 +59,7 @@ void accel_init(spi_device_handle_t * spi);
 void acc_who_i_am(spi_device_handle_t * spi, uint8_t i);
 void adc_setup(spi_device_handle_t * spi2);
 void get_data(void *pvParameter);
-void get_data_adc(void *pvParameter);
+void get_data_adc(spi_device_handle_t *spi, uint32_t * buf);
 void get_data_acc_fifo(spi_device_handle_t * spi, int16_t * dma_buf);
 uint8_t check_intr(spi_device_handle_t * spi);
 
