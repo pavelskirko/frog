@@ -50,7 +50,7 @@
 //SemaphoreHandle_t xSemaphore;
 TaskHandle_t xTaskToNotify;
 const esp_partition_t *partition;
-uint8_t data_size[2 * NUM_OF_FIELDS];
+uint8_t data_size[2 * NUM_OF_FIELDS+10];
 //uint8_t buff2[BUFF_SIZE];
 EventGroupHandle_t SpiEventGroup;
 void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3);

@@ -225,10 +225,20 @@ void IRAM_ATTR get_data(void *pvParameter)
 //		num2++;
 //		}
 
-		if((check_intr(&spi1) & (1<<6)) && num1 < NUM_OF_FIELDS)
+		if(num1 < NUM_OF_FIELDS - 4)
     	{
+    		while(1)
+    		{
+    			if (check_intr(&spi1) & (1<<6))
+    			{
+    				break;
+    			}
+    			else
+    			{
+    				continue;
+    			}
+    		}
     		memset(a1, 0, sizeof(Accel));
-
     		memset(dma_buf, 0, 256);
     		get_data_acc_fifo(&spi1, dma_buf);
     		timer_get_counter_value(0,0, &time);
@@ -250,8 +260,9 @@ void IRAM_ATTR get_data(void *pvParameter)
     			{
     				a1[i].time = 0;
     			}
-    			pb_get_encoded_size(&data_size[num1+i], Accel_fields, &a1[i]);
-
+    			size_t d_size = 0;
+    			pb_get_encoded_size(&d_size, Accel_fields, &a1[i]);
+    			data_size[num1+i] = (uint8_t)d_size;
     			memset(buf, 0, sizeof(buf));
     			memset(&stream, 0, sizeof(pb_ostream_t));
     			stream = pb_ostream_from_buffer(buf, sizeof(buf));
@@ -267,8 +278,20 @@ void IRAM_ATTR get_data(void *pvParameter)
     		}
     		num1 = num1+4;
     	}
-    	if((check_intr(&spi2) & (1<<6)) && num1 < NUM_OF_FIELDS)
+
+    	if(num2 < NUM_OF_FIELDS - 4)
     	{
+    		while(1)
+    		{
+    			if (check_intr(&spi2) & (1<<6))
+    			{
+    				break;
+    			}
+    			else
+    			{
+    				continue;
+    			}
+    		}
     		memset(a1, 0, sizeof(Accel));
    		    memset(dma_buf, 0, 256);
    		    get_data_acc_fifo(&spi2, dma_buf);
@@ -280,7 +303,7 @@ void IRAM_ATTR get_data(void *pvParameter)
     			a1[i].a_x = dma_buf[count];
     			a1[i].a_y = dma_buf[count+1];
     			a1[i].a_z = dma_buf[count+2];
-    			a1[i].number = num1 + i;
+    			a1[i].number = num2 + i;
     		    count = count + 4;
     		    a1[i].up = false;
     		    a1[i].last_msg = false;
@@ -288,7 +311,9 @@ void IRAM_ATTR get_data(void *pvParameter)
     		    {
     		    	a1[i].time = 0;
     		    }
-    		    pb_get_encoded_size(&data_size[NUM_OF_FIELDS + num2 + i], Accel_fields, &a1[i]);
+    			size_t d_size = 0;
+    			pb_get_encoded_size(&d_size, Accel_fields, &a1[i]);
+    			data_size[NUM_OF_FIELDS + num2 + i] = (uint8_t)d_size;
     		    memset(buf, 0, sizeof(buf));
     		    memset(&stream, 0, sizeof(pb_ostream_t));
     		    stream = pb_ostream_from_buffer(buf, sizeof(buf));

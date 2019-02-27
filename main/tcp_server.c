@@ -193,7 +193,7 @@ void IRAM_ATTR tcp_server(void *pvParameters)
 //               		pb_decode(&stream_in, Accel_fields, &a4);
 //               		s = stream.bytes_written;
 //               		delta = data_size - s;
-            		vTaskDelay(delay / portTICK_PERIOD_MS);
+//            		vTaskDelay(delay / portTICK_PERIOD_MS);
 
         			s = 0;
         			r = 0;
