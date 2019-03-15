@@ -104,7 +104,7 @@ void IRAM_ATTR tcp_server(void *pvParameters)
     tcpServerAddr.sin_family = AF_INET;
     tcpServerAddr.sin_port = htons( 3000 );
     int s, r;
-    uint8_t buf[sizeof(Accel)*2];
+    uint8_t buf[MAX_PRTBUF_SIZE];
     uint8_t recv_buf=0;
     static struct sockaddr_in remote_addr;
     static unsigned int socklen;
@@ -159,6 +159,40 @@ void IRAM_ATTR tcp_server(void *pvParameters)
 //        	pb_istream_t stream_in = pb_istream_from_buffer(buf, sizeof(buf));
         	Accel a = Accel_init_default;
         	pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
+        	int8_t test_buf[DMA_BUFF_SIZE];
+
+//        	***********************************
+//
+//        	while(1)
+//        	{
+////        		get_data_acc_fifo(&spi2, test_buf);
+//        		stream = pb_ostream_from_buffer(buf, sizeof(buf));
+//        		a.a_x = get_data_acc(&spi1, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
+//        		a.a_y = get_data_acc(&spi1, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
+//        		a.a_z = get_data_acc(&spi1, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
+//        		a.g_x = get_data_acc(&spi2, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
+//        		a.g_y = get_data_acc(&spi2, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
+//        		a.g_z = get_data_acc(&spi2, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
+////        		a.a_x = (int16_t)read_low_high_byte(0, &test_buf);
+////        		a.a_y = (int16_t)read_low_high_byte(1, &test_buf);
+////        		a.a_z = (int16_t)read_low_high_byte(2, &test_buf);
+//        		memset(buf, 0, sizeof(buf));
+//        		size_t g_size;
+//        		pb_get_encoded_size(&g_size, Accel_fields, &a);
+//        		pb_encode(&stream, Accel_fields, &a);
+//        		s = 0;
+//
+//      			while(s < g_size)
+//       			{
+//       				s = write(cs , buf, g_size);
+//       			}
+//      			memset(&stream, 0, sizeof(pb_ostream_t));
+//      			indic(1);
+//
+//        	}
+//
+
+//        	***********************************
 
         	for(uint32_t i = 0; i < 2 * NUM_OF_FIELDS; i++)
         	{

@@ -45,22 +45,26 @@
 #define PIN_NUM_CS0   5 // local acc
 #define PIN_NUM_CS1   4 // remote acc
 #define PIN_NUM_CS2   2 // adc
-#define BUFF_SIZE	500
 #define NUM_OF_FIELDS	8000
-//SemaphoreHandle_t xSemaphore;
+#define MAX_PRTBUF_SIZE		76
+#define EL_IN_BURST		32 // change ICM20602_FIFO_WM_TH if you are changing that
+#define DMA_BUFF_SIZE	EL_IN_BURST*7*2
+
+
+
 TaskHandle_t xTaskToNotify;
 const esp_partition_t *partition;
-uint8_t data_size[2 * NUM_OF_FIELDS+10];
-//uint8_t buff2[BUFF_SIZE];
+uint8_t data_size[2 * NUM_OF_FIELDS + 34];
 EventGroupHandle_t SpiEventGroup;
 void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3);
-uint16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_high);
+int16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_high);
 void accel_init(spi_device_handle_t * spi);
 void acc_who_i_am(spi_device_handle_t * spi, uint8_t i);
 void adc_setup(spi_device_handle_t * spi2);
 void get_data(void *pvParameter);
-void get_data_adc(void *pvParameter);
-void get_data_acc_fifo(spi_device_handle_t * spi, int16_t * dma_buf);
+void get_data_adc(spi_device_handle_t *spi, uint32_t * buf);
+void get_data_acc_fifo(spi_device_handle_t * spi, int8_t * dma_buf);
+int16_t read_low_high_byte(uint8_t count, int8_t * dma_buf);
 uint8_t check_intr(spi_device_handle_t * spi);
 
 

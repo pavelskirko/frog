@@ -8,8 +8,11 @@
 
 
 uint8_t who_am_i[2];
-uint8_t ad_rec;
-
+uint8_t ad_rec[10];
+size_t dma;
+int16_t gyro;
+//Accel a1[EL_IN_BURST];
+int16_t temp;
 //Accel a3;
 //size_t heap1;
 //size_t heap2;
@@ -27,7 +30,7 @@ void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_devic
 				        .max_transfer_sz=4094*16,
 				    };
 	spi_device_interface_config_t devcfg={
-				        .clock_speed_hz=2*1000*1000,           //Clock out at 10 MHz
+				        .clock_speed_hz=2*1000*1000,           //Clock out at 2 MHz
 				        .command_bits=0,
 						.address_bits=8,
 						.mode=0,                                //SPI mode 0
@@ -52,24 +55,33 @@ void accel_init(spi_device_handle_t * spi)
 	trans.addr=ICM20602_PWR_MGMT_1;
 	trans.flags=SPI_TRANS_USE_TXDATA;
 	trans.length=16;
-	trans.tx_data[0]=(1<<5) | (1<<4) | 1; //cycle mode | gyro stanby | auto select clock
+	trans.tx_data[0]=(1<<5)| (1<<4) | (1<<3) | 1; //cycle mode | auto select clock
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	spi_transaction_t * r_trans;
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
-	trans.addr=0x1A;
-	trans.tx_data[0]=0; // should be for fifo
+	trans.addr=ICM20602_CONFIG;
+	trans.tx_data[0] = 3; // DLPF gyro
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
+//	trans.addr=ICM20602_GYRO_CONFIG;
+//	trans.tx_data[0]=(1<<3)| (1<<4);
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 	trans.addr=ICM20602_ACCEL_CONFIG;
-	trans.tx_data[0]=(1<<3)| (1<<4);
+	trans.tx_data[0]= (1<<4) | (1<<3); // +-16g
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+
+	trans.addr=ICM20602_SMPLRT_DIV;
+	trans.tx_data[0]= 0;
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 	trans.addr=ICM20602_ACCEL_CONFIG2;
-	trans.tx_data[0]=(1<<3); // Used to bypass DLPF (4kHz sample rate)
+	trans.tx_data[0]=3; //  DLPF acc
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
@@ -78,17 +90,31 @@ void accel_init(spi_device_handle_t * spi)
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
+//	trans.addr=ICM20602_ACCEL_INTEL_CTRL;
+//	trans.tx_data[0]=0; // intell control
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+
+
 	trans.addr=ICM20602_FIFO_EN;
-	trans.tx_data[0]=(1<<3) ; // enable write acc data
+	trans.tx_data[0]=(1<<3) | (1<<4) ; // enable write acc data | gyro data
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 	trans.addr=ICM20602_FIFO_WM_TH2;
-	trans.tx_data[0]=0xFF; // treshold that trigers intr
+	trans.tx_data[0]=0xC0; // treshold that trigers intr, 448 bytes (7*2*32)
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
+	trans.addr=ICM20602_FIFO_WM_TH1;
+	trans.tx_data[0]=0x1;
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
+	trans.addr=ICM20602_I2C_IF;
+	trans.tx_data[0]=(1<<6);
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 
 
@@ -123,51 +149,37 @@ void acc_who_i_am(spi_device_handle_t * spi, uint8_t i)
 }
 
 
-void adc_setup(spi_device_handle_t * spi2)
-{
-	spi_device_interface_config_t devcfg2={
-						        .clock_speed_hz=10*1000*1000,           //Clock out at 10 MHz
-						        .command_bits=8,
-								.address_bits=8,
-								.mode=0,                                //SPI mode 0
-						        .spics_io_num=PIN_NUM_CS2,               //CS pin
-						        .queue_size=7,  	//We want to be able to queue 7 transactions at a time
-								.flags=0,//
-						    };
-	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg2, spi2));
-	spi_transaction_t trans;
-	memset(&trans, 0, sizeof(spi_transaction_t));
-	trans.tx_data[0] = (0x7C & AD_7797_MODE); // write to MODE
-	trans.tx_data[1] = 0;
-	trans.tx_data[2] = 0xF; // slowest update rate
-	trans.length = 24;
-	trans.flags = SPI_TRANS_USE_TXDATA;
-	ESP_ERROR_CHECK(spi_device_queue_trans(*spi2, &trans, portMAX_DELAY));
-	spi_transaction_t * r_trans;
-	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi2, &r_trans, portMAX_DELAY));
-	memset(&trans, 0, sizeof(spi_transaction_t));
-	trans.tx_data[0] = (0x7C & AD_7797_CONFG); // write to configuration
-	trans.tx_data[1] = (1<<3) | 0x3; // unipolar
-	trans.tx_data[2] = 0xF;
-	trans.length = 24;
-	trans.flags = SPI_TRANS_USE_TXDATA;
-	ESP_ERROR_CHECK(spi_device_queue_trans(*spi2, &trans, portMAX_DELAY));
-	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi2, &r_trans, portMAX_DELAY));
-
-
-}
+//void adc_setup(spi_device_handle_t * spi)
+//{
+//	spi_transaction_t trans;
+//	memset(&trans, 0, sizeof(spi_transaction_t));
+//	trans.addr = (AD_7797_MODE); // write to MODE
+//	trans.tx_data[0] = 0;
+//	trans.tx_data[1] = 0xF; // slowest update rate
+//	trans.length = 24;
+//	trans.flags = SPI_TRANS_USE_TXDATA;
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+//	spi_transaction_t * r_trans;
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	memset(&trans, 0, sizeof(spi_transaction_t));
+//	trans.addr = (AD_7797_CONFG); // write to configuration
+//	trans.tx_data[0] = (1<<4);
+//	trans.tx_data[1] = (1<<0) | (1<<1) | (1<<2); // bipolar
+//	trans.length = 24;
+//	trans.flags = SPI_TRANS_USE_TXDATA;
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//
+//
+//}
 
 void IRAM_ATTR get_data(void *pvParameter)
 {
 	SpiEventGroup = xEventGroupCreate();
 	xTaskToNotify = NULL;
-	Accel a1[4]; //= malloc(NUM_OF_FIELDS * sizeof(Accel));
 	spi_device_handle_t spi1;
 	spi_device_handle_t spi2;
 	spi_device_handle_t spi3;
-//	heap1 = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-//	heap2 = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
-//	accel_size = sizeof(Accel);
 	spi_setup(&spi1, &spi2, &spi3);
 	accel_init(&spi1);
 	accel_init(&spi2);
@@ -175,17 +187,22 @@ void IRAM_ATTR get_data(void *pvParameter)
 //	acc_who_i_am(&spi2, 1);
 	uint32_t num1 = 0;
 	uint32_t num2 = 0;
-	uint8_t buf[sizeof(Accel)*2];
+	uint32_t adc_buf;
+//	get_data_adc(&spi3, &adc_buf);
+	uint8_t buf[MAX_PRTBUF_SIZE*EL_IN_BURST];
 	pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
 //	pb_istream_t stream_in = pb_istream_from_buffer(buf, sizeof(buf));
 	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
 	esp_partition_erase_range(partition, 0, partition->size);
-
+	Accel a;
 //	pb_ostream_t stream1 = pb_ostream_from_buffer(buff1, sizeof(buff1));
 //	pb_ostream_t stream2 = pb_ostream_from_buffer(buff2, sizeof(buff2));
 //	xTaskToNotify = xTaskGetCurrentTaskHandle();
-
+//	dma = heap_caps_get_largest_free_block(MALLOC_CAP_DMA);
+	int8_t * dma_buf = (int8_t *)heap_caps_malloc(DMA_BUFF_SIZE, MALLOC_CAP_DMA);
 	uint64_t time;
+	vTaskDelay(100 / portTICK_PERIOD_MS);
+	gyro = get_data_acc(&spi1, ICM20602_GYRO_XOUT_L, ICM20602_GYRO_XOUT_H);
 //	uint64_t pr_time1 = 0;
 //	uint64_t pr_time2 = 0;
 //	ulTaskNotifyTake(pdTRUE,  portMAX_DELAY);
@@ -208,9 +225,9 @@ void IRAM_ATTR get_data(void *pvParameter)
 
 //	***************************************************************
 
-	int16_t * dma_buf = (int16_t *)heap_caps_malloc(256, MALLOC_CAP_DMA);
+
 	timer_start(0, 0);
-	while(num1 < NUM_OF_FIELDS || num2 < NUM_OF_FIELDS)
+	while(num1 < NUM_OF_FIELDS - EL_IN_BURST || num2 < NUM_OF_FIELDS - EL_IN_BURST)
 	{
 //		for(uint8_t j = 0; j < 4; j++)
 //		{
@@ -225,7 +242,7 @@ void IRAM_ATTR get_data(void *pvParameter)
 //		num2++;
 //		}
 
-		if(num1 < NUM_OF_FIELDS - 4)
+		if(num1 < NUM_OF_FIELDS - EL_IN_BURST)
     	{
     		while(1)
     		{
@@ -238,36 +255,52 @@ void IRAM_ATTR get_data(void *pvParameter)
     				continue;
     			}
     		}
-    		memset(a1, 0, sizeof(Accel));
-    		memset(dma_buf, 0, 256);
+
+    		memset(dma_buf, 0, DMA_BUFF_SIZE);
+    		memset(buf, 0, sizeof(buf));
     		get_data_acc_fifo(&spi1, dma_buf);
     		timer_get_counter_value(0,0, &time);
-    		a1[0].time = (uint32_t) ((time) / 80); // to microsec
+
     		uint8_t count = 0;
-    		for(uint8_t i = 0; i < 4; i++)
+    		for(uint8_t i = 0; i < EL_IN_BURST; i++)
     		{
-//    			memcpy(&dma_buf[count], &a1[i].a_x, sizeof(uint16_t));
-//    			memcpy(&dma_buf[count+1], &a1[i].a_y, sizeof(uint16_t));
-//    			memcpy(&dma_buf[count+2], &a1[i].a_z, sizeof(uint16_t));
-    			a1[i].a_x = dma_buf[count];
-    			a1[i].a_y = dma_buf[count+1];
-    			a1[i].a_z = dma_buf[count+2];
-    			a1[i].number = num1 + i;
-    			count = count + 4;
-    			a1[i].up = true;
-    			a1[i].last_msg = false;
+    			memset(&a, 0, sizeof(Accel));
+
+    			a.a_x = (int16_t)read_low_high_byte(count, dma_buf);
+    			a.a_y = (int16_t)read_low_high_byte(count+1, dma_buf);
+    			a.a_z = (int16_t)read_low_high_byte(count+2, dma_buf);
+    			temp = (int16_t)read_low_high_byte(count+3, dma_buf);
+    			a.g_x = (int16_t)read_low_high_byte(count+4, dma_buf);
+    			a.g_y = (int16_t)read_low_high_byte(count+5, dma_buf);
+    			a.g_z = (int16_t)read_low_high_byte(count+6, dma_buf);
+
+//    			a.a_x = dma_buf[count];
+//    			a.a_y = dma_buf[count+1];
+//    			a.a_z = dma_buf[count+2];
+//    			temp = dma_buf[count+3];
+//    			a.g_x = dma_buf[count+4];
+//    			a.g_y = dma_buf[count+5];
+//    			a.g_z = dma_buf[count+6];
+    			a.number = num1 + i;
+    			count = count + 7;
+    			a.up = true;
+    			a.last_msg = false;
     			if(i > 0)
     			{
-    				a1[i].time = 0;
+    				a.time = 0;
     			}
+    			else
+    			{
+    				a.time = (uint32_t) ((time) / 80); // to microsec
+    			}
+
     			size_t d_size = 0;
-    			pb_get_encoded_size(&d_size, Accel_fields, &a1[i]);
+    			pb_get_encoded_size(&d_size, Accel_fields, &a);
     			data_size[num1+i] = (uint8_t)d_size;
-    			memset(buf, 0, sizeof(buf));
     			memset(&stream, 0, sizeof(pb_ostream_t));
-    			stream = pb_ostream_from_buffer(buf, sizeof(buf));
-    			pb_encode(&stream, Accel_fields, &a1[i]);
-    			esp_partition_write(partition, (sizeof(buf))*(num1+i), buf, sizeof(buf));
+    			stream = pb_ostream_from_buffer(buf + MAX_PRTBUF_SIZE*i, MAX_PRTBUF_SIZE);
+    			pb_encode(&stream, Accel_fields, &a);
+
 //    			memset(buf, 0, sizeof(buf));
 //    			memset(&stream_in, 0, sizeof(pb_istream_t));
 //    			stream_in = pb_istream_from_buffer(buf, sizeof(buf));
@@ -276,10 +309,11 @@ void IRAM_ATTR get_data(void *pvParameter)
 //    			pb_decode(&stream_in, Accel_fields, &a3);
 
     		}
-    		num1 = num1+4;
+			esp_partition_write(partition, (sizeof(buf))*(num1 / EL_IN_BURST), buf, sizeof(buf));
+    		num1 = num1 + EL_IN_BURST;
     	}
 
-    	if(num2 < NUM_OF_FIELDS - 4)
+    	if(num2 < NUM_OF_FIELDS - EL_IN_BURST)
     	{
     		while(1)
     		{
@@ -292,35 +326,55 @@ void IRAM_ATTR get_data(void *pvParameter)
     				continue;
     			}
     		}
-    		memset(a1, 0, sizeof(Accel));
-   		    memset(dma_buf, 0, 256);
+
+   		    memset(dma_buf, 0, DMA_BUFF_SIZE);
+   		    memset(buf, 0, sizeof(buf));
    		    get_data_acc_fifo(&spi2, dma_buf);
    		    timer_get_counter_value(0,0, &time);
-    		a1[0].time = (uint32_t) ((time) / 80); // to microsec
+
     		uint8_t count = 0;
-    		for(uint8_t i = 0; i < 4; i++)
+    		for(uint8_t i = 0; i < EL_IN_BURST; i++)
     		{
-    			a1[i].a_x = dma_buf[count];
-    			a1[i].a_y = dma_buf[count+1];
-    			a1[i].a_z = dma_buf[count+2];
-    			a1[i].number = num2 + i;
-    		    count = count + 4;
-    		    a1[i].up = false;
-    		    a1[i].last_msg = false;
+    			memset(&a, 0, sizeof(Accel));
+    			a.a_x = (int16_t)read_low_high_byte(count, dma_buf);
+    			a.a_y = (int16_t)read_low_high_byte(count+1, dma_buf);
+    			a.a_z = (int16_t)read_low_high_byte(count+2, dma_buf);
+    			temp = (int16_t)read_low_high_byte(count+3, dma_buf);
+    			a.g_x = (int16_t)read_low_high_byte(count+4, dma_buf);
+    			a.g_y = (int16_t)read_low_high_byte(count+5, dma_buf);
+    			a.g_z = (int16_t)read_low_high_byte(count+6, dma_buf);
+
+
+//    			a1[i].a_x = dma_buf[count];
+//    			a1[i].a_y = dma_buf[count+1];
+//    			a1[i].a_z = dma_buf[count+2];
+//    			temp = dma_buf[count+3];
+//    			a1[i].g_x = dma_buf[count+4];
+//    			a1[i].g_y = dma_buf[count+5];
+//    			a1[i].g_z = dma_buf[count+6];
+    			a.number = num2 + i;
+    		    count = count + 7;
+    		    a.up = false;
+    		    a.last_msg = false;
     		    if(i > 0)
     		    {
-    		    	a1[i].time = 0;
+    		    	a.time = 0;
+    		    }
+    		    else
+    		    {
+    		    	a.time = (uint32_t) ((time) / 80); // to microsec
     		    }
     			size_t d_size = 0;
-    			pb_get_encoded_size(&d_size, Accel_fields, &a1[i]);
+    			pb_get_encoded_size(&d_size, Accel_fields, &a);
     			data_size[NUM_OF_FIELDS + num2 + i] = (uint8_t)d_size;
-    		    memset(buf, 0, sizeof(buf));
+
     		    memset(&stream, 0, sizeof(pb_ostream_t));
-    		    stream = pb_ostream_from_buffer(buf, sizeof(buf));
-    		    pb_encode(&stream, Accel_fields, &a1[i]);
-    		    esp_partition_write(partition, (sizeof(buf))*(NUM_OF_FIELDS + num2 + i), buf, sizeof(buf));
+    		    stream = pb_ostream_from_buffer(buf + MAX_PRTBUF_SIZE*i, MAX_PRTBUF_SIZE);
+    		    pb_encode(&stream, Accel_fields, &a);
+
     		}
-    		num2 = num2 +4;
+    		esp_partition_write(partition, (sizeof(buf))*(NUM_OF_FIELDS + num2) / EL_IN_BURST, buf, sizeof(buf));
+    		num2 = num2 + EL_IN_BURST;
     	}
 
     }
@@ -360,15 +414,23 @@ void IRAM_ATTR get_data(void *pvParameter)
 	}
 }
 
-void get_data_acc_fifo(spi_device_handle_t * spi, int16_t * dma_buf)
+int16_t read_low_high_byte(uint8_t count, int8_t * dma_buf)
+{
+	int16_t high_b = dma_buf[2 * count];
+	int16_t low_b = dma_buf[2 * count + 1];
+	int16_t x = low_b | (high_b<<8);
+	return x;
+}
+
+void get_data_acc_fifo(spi_device_handle_t * spi, int8_t * dma_buf)
 {
 
 	spi_transaction_t trans;
 	memset(&trans, 0, sizeof(spi_transaction_t));
 	trans.addr = (0x80 | ICM20602_FIFO_R_W);
 	trans.rx_buffer=dma_buf;
-	trans.length = 256+8;
-	trans.rxlength=256;
+	trans.length = DMA_BUFF_SIZE*8+8;
+	trans.rxlength = DMA_BUFF_SIZE*8;
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	spi_transaction_t * r_trans1;
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans1, portMAX_DELAY));
@@ -390,11 +452,11 @@ uint8_t check_intr(spi_device_handle_t * spi)
 	return(intr);
 }
 
-uint16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_high)
+int16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_high)
 {
 	spi_transaction_t trans;
-	uint32_t low_b;//= heap_caps_malloc(32, MALLOC_CAP_DMA);
-	uint32_t high_b;//= heap_caps_malloc(32, MALLOC_CAP_DMA);
+	int16_t low_b;//= heap_caps_malloc(32, MALLOC_CAP_DMA);
+	int16_t high_b;//= heap_caps_malloc(32, MALLOC_CAP_DMA);
 
 	memset(&trans, 0, sizeof(spi_transaction_t));
 	trans.addr = (0x80 | addr_low);
@@ -409,38 +471,24 @@ uint16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_
 	trans.rx_buffer=&high_b;
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans1, portMAX_DELAY));
-//	uint8_t h = (uint8_t)*high_b;
-//	uint8_t l = (uint8_t)*low_b;
-	uint16_t x = low_b | (high_b<<8);
-//	heap_caps_free(low_b);
-//	heap_caps_free(high_b);
+	int16_t x = low_b | (high_b<<8);
 	return(x);
 }
 
-void get_data_adc(void *pvParameter)
+void get_data_adc(spi_device_handle_t *spi, uint32_t * buf)
 {
-	spi_device_handle_t spi2;
-//	spi_bus_config_t buscfg={
-//				        .miso_io_num=PIN_NUM_VSPI_Q,
-//				        .mosi_io_num=PIN_NUM_VSPI_D,
-//				        .sclk_io_num=PIN_NUM_CLK,
-//				        .quadwp_io_num=-1,
-//				        .quadhd_io_num=-1,
-//				        .max_transfer_sz=4094,
-//				    };
-//	spi_device_interface_config_t devcfg={
-//				        .clock_speed_hz=10*1000,           //Clock out at 10 MHz
-//				        .command_bits=8,
-//						.address_bits=8,
-//						.mode=0,                                //SPI mode 0
-//				        .spics_io_num=PIN_NUM_CS2,               //CS pin
-//				        .queue_size=7,  	//We want to be able to queue 7 transactions at a time
-//						.flags=0,//SPI_DEVICE_POSITIVE_CS,
-//				    };
-//	ESP_ERROR_CHECK(spi_bus_initialize(VSPI_HOST, &buscfg, 1));
-//	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg, &spi2));
-	adc_setup(&spi2);
 	spi_transaction_t trans[2];
+	memset(&trans[0], 0, sizeof(spi_transaction_t));
+	trans[0].tx_data[0] = 0xFF;
+	trans[0].tx_data[1] = 0xFF;
+	trans[0].tx_data[2] = 0xFF;
+	trans[0].tx_data[3] = 0xFF;
+	trans[0].length = 32;
+	trans[0].flags = SPI_TRANS_USE_TXDATA;
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[0], portMAX_DELAY));
+	spi_transaction_t * r_trans;
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+
 	memset(&trans[0], 0, sizeof(spi_transaction_t));
 	trans[0].tx_data[0] = (0x7C & ((1<<6) | AD_7797_ID )); // read id
 	trans[0].length = 8;
@@ -450,11 +498,57 @@ void get_data_adc(void *pvParameter)
 	trans[1].length = 8;
 	trans[1].rx_data[0] = 0;
 	trans[1].flags = SPI_TRANS_USE_RXDATA;
-	ESP_ERROR_CHECK(spi_device_queue_trans(spi2, &trans[0], portMAX_DELAY));
-	ESP_ERROR_CHECK(spi_device_queue_trans(spi2, &trans[1], portMAX_DELAY));
-	spi_transaction_t * r_trans;
-	ESP_ERROR_CHECK(spi_device_get_trans_result(spi2, &r_trans, portMAX_DELAY));
-	ESP_ERROR_CHECK(spi_device_get_trans_result(spi2, &r_trans, portMAX_DELAY));
-	//	ESP_ERROR_CHECK(spi_device_get_trans_result(spi1, &r_trans, portMAX_DELAY));
-	ad_rec = r_trans->rx_data[0];
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[0], portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[1], portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+	ad_rec[0] = r_trans->rx_data[0];
+
+	memset(&trans[0], 0, sizeof(spi_transaction_t));
+	trans[0].tx_data[0] = (0x7C & ((1<<6) | AD_7797_MODE )); // read id
+	trans[0].length = 8;
+	trans[0].flags = SPI_TRANS_USE_TXDATA;
+	memset(&trans[1], 0, sizeof(spi_transaction_t));
+	trans[1].rxlength=16;
+	trans[1].length = 16;
+	trans[1].flags = SPI_TRANS_USE_RXDATA;
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[0], portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[1], portMAX_DELAY));
+//	spi_transaction_t * r_trans;
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+	ad_rec[1] = r_trans->rx_data[0];
+	ad_rec[2] = r_trans->rx_data[1];
+
+	memset(&trans[0], 0, sizeof(spi_transaction_t));
+	trans[0].tx_data[0] = (0x7C & ((1<<6) | AD_7797_CONFG )); // read id
+	trans[0].length = 8;
+	trans[0].flags = SPI_TRANS_USE_TXDATA;
+	memset(&trans[1], 0, sizeof(spi_transaction_t));
+	trans[1].rxlength=16;
+	trans[1].length = 16;
+	trans[1].flags = SPI_TRANS_USE_RXDATA;
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[0], portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[1], portMAX_DELAY));
+//	spi_transaction_t * r_trans;
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+	ad_rec[3] = r_trans->rx_data[0];
+	ad_rec[4] = r_trans->rx_data[1];
+
+	memset(&trans[0], 0, sizeof(spi_transaction_t));
+	trans[0].tx_data[0] = (0x7C & ((1<<6) | AD_7797_STATUS )); // read id
+	trans[0].length = 8;
+	trans[0].flags = SPI_TRANS_USE_TXDATA;
+	memset(&trans[1], 0, sizeof(spi_transaction_t));
+	trans[1].rxlength=16;
+	trans[1].length = 16;
+	trans[1].flags = SPI_TRANS_USE_RXDATA;
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[0], portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans[1], portMAX_DELAY));
+//	spi_transaction_t * r_trans;
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+	ad_rec[5] = r_trans->rx_data[0];
+
 }

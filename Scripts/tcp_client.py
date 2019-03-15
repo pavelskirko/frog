@@ -71,7 +71,7 @@ while True:
 print(res)
 sock.close()
 res_encoded = res.SerializeToString()
-file = open("result.txt", "wb+")
+file = open("result_with_gyro_6.txt", "wb+")
 file.write(res_encoded)
 file.close()
 print("Overall, ", len(res.up), " + ", len(res.down), " elements")

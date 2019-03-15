@@ -99,6 +99,7 @@
 //#define DMP_REG          0x6F  // Register in DMP from which to read or to which to write
 //#define DMP_REG_1        0x70
 //#define DMP_REG_2        0x71
+#define ICM20602_I2C_IF		0x70
 #define ICM20602_FIFO_COUNTH      0x72
 #define ICM20602_FIFO_COUNTL      0x73
 #define ICM20602_FIFO_R_W         0x74

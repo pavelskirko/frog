@@ -4,10 +4,15 @@ message Accel {
 	int32 a_x = 1;
 	int32 a_y = 2;
 	int32 a_z = 3;
+
 	uint32 time = 4;
 	bool up = 5;
 	bool last_msg = 6;
 	uint32 number = 7;
+
+	int32 g_x = 8;
+	int32 g_y = 9;
+	int32 g_z = 10;
 }
 
 message FinalResult {
