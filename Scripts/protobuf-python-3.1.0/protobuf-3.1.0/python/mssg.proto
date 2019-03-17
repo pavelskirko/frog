@@ -13,6 +13,7 @@ message Accel {
 	int32 g_x = 8;
 	int32 g_y = 9;
 	int32 g_z = 10;
+	uint32 setting = 11;
 }
 
 message FinalResult {

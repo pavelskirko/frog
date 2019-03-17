@@ -137,7 +137,7 @@ QueueHandle_t * button_init(unsigned long long pin_select) {
     }
 
     // Spawn a task to monitor the pins
-    xTaskCreate(&button_task, "button_task", 4096, NULL, 10, &button_task_handle);
+    xTaskCreatePinnedToCore(&button_task, "button_task", 4096, NULL, 1, &button_task_handle, 0);
 
     return queue;
 }

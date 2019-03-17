@@ -106,6 +106,7 @@ void IRAM_ATTR tcp_server(void *pvParameters)
     int s, r;
     uint8_t buf[MAX_PRTBUF_SIZE];
     uint8_t recv_buf=0;
+    uint8_t setting_buf = 0;
     static struct sockaddr_in remote_addr;
     static unsigned int socklen;
     socklen = sizeof(remote_addr);
@@ -159,8 +160,33 @@ void IRAM_ATTR tcp_server(void *pvParameters)
 //        	pb_istream_t stream_in = pb_istream_from_buffer(buf, sizeof(buf));
         	Accel a = Accel_init_default;
         	pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
-        	int8_t test_buf[DMA_BUFF_SIZE];
+        	memset(buf, 0, sizeof(buf));
+//        	size_t g_size;
+//        	pb_get_encoded_size(&g_size, Accel_fields, &a);
+//        	pb_encode(&stream, Accel_fields, &a);
+//        	s = 0;
+//        	while(s < g_size)
+//        	{
+//        	 	s = write(cs , buf, g_size);
+//        	}
+        	while(1)
+        	{
+        		r = 0;
+        		memset(&setting_buf, 0, sizeof(uint8_t));
+        		memset(data_size, 0, sizeof(data_size));
+        		while(~setting_buf & (1<<7))
+        		{
+        			r = recv(cs, &setting_buf, sizeof(uint8_t), MSG_WAITALL);
+        		}
 
+        		dlpf_acc = (setting_buf & ((1<<2)|(1<<1)|(1<<0)));
+        		xEventGroupSetBits(SpiEventGroup, BIT2); // BIT2 -- received setting
+        		xEventGroupWaitBits(SpiEventGroup,    // The event group being tested.
+        							BIT1,  // BIT1 -- recording completed
+        							pdTRUE,         // should be cleared before returning.
+        							pdFALSE,        // Don't wait for both bits, either bit will do.
+        							portMAX_DELAY );
+        		xEventGroupClearBits(SpiEventGroup, BIT1);
 //        	***********************************
 //
 //        	while(1)
@@ -194,16 +220,16 @@ void IRAM_ATTR tcp_server(void *pvParameters)
 
 //        	***********************************
 
-        	for(uint32_t i = 0; i < 2 * NUM_OF_FIELDS; i++)
-        	{
-        		if(data_size[i] == 0)
+        		for(uint32_t i = 0; i < 2 * NUM_OF_FIELDS; i++)
         		{
-        		    continue;
-        		}
-        		while(1)
-        		{
-            		memset(buf, 0, sizeof(buf));
-            		esp_partition_read(partition, sizeof(buf)*i, buf, sizeof(buf));
+        			if(data_size[i] == 0)
+        			{
+        				continue;
+        			}
+        			while(1)
+        			{
+        				memset(buf, 0, sizeof(buf));
+        				esp_partition_read(partition, sizeof(buf)*i, buf, sizeof(buf));
 //            		memset(&stream_in, 0, sizeof(pb_istream_t));
 //            		stream_in = pb_istream_from_buffer(buf, sizeof(buf));
 //            		if (!pb_decode(&stream_in, Accel_fields, &a4))
@@ -229,13 +255,58 @@ void IRAM_ATTR tcp_server(void *pvParameters)
 //               		delta = data_size - s;
 //            		vTaskDelay(delay / portTICK_PERIOD_MS);
 
+        				s = 0;
+        				r = 0;
+        				while(s < data_size[i])
+        				{
+        					s = write(cs , buf, data_size[i]);
+        				}
+
+        				while(1)
+        				{
+        					memset(&recv_buf, 0, 1);
+        					r = recv(cs, &recv_buf, sizeof(uint8_t), MSG_WAITALL);
+        					if(recv_buf == 0)
+        					{
+        						continue;
+        					}
+        					else if(recv_buf == 0x18 || recv_buf == 0xE7)
+        					{
+        						break; // received right response
+        					}
+        				}
+        				if(recv_buf == 0x18)
+        				{
+        					if(delay > 0)
+        					{
+        						delay--;
+        					}
+//        				indic(1);
+        					break; // success
+        				}
+        				else
+        				{
+        					delay++;
+        					continue; // failure
+        				}
+        			}
+//        		vTaskDelay(200 / portTICK_PERIOD_MS);
+
+        		}
+        		while(1)
+        		{
+        			a = (Accel)Accel_init_default;
+        			a.last_msg = true;
+        			memset(buf, 0, sizeof(buf));
+        			stream = pb_ostream_from_buffer(buf, sizeof(buf));
+        			pb_encode(&stream, Accel_fields, &a);
+        			vTaskDelay(100 / portTICK_PERIOD_MS);
         			s = 0;
         			r = 0;
-        			while(s < data_size[i])
+        			while(s < stream.bytes_written)
         			{
-        				s = write(cs , buf, data_size[i]);
+        				s = write(cs , buf, stream.bytes_written);
         			}
-
         			while(1)
         			{
         				memset(&recv_buf, 0, 1);
@@ -251,115 +322,20 @@ void IRAM_ATTR tcp_server(void *pvParameters)
         			}
         			if(recv_buf == 0x18)
         			{
-        				if(delay > 0)
-        				{
-        					delay--;
-        				}
-//        				indic(1);
+        				indic(1);
         				break; // success
         			}
         			else
         			{
-        				delay++;
         				continue; // failure
         			}
         		}
-//        		vTaskDelay(200 / portTICK_PERIOD_MS);
+        		esp_partition_erase_range(partition, 0, partition->size);
+        		indic(3);
+        	}
 
-        	}
-        	while(1)
-        	{
-        	a = (Accel)Accel_init_default;
-       		a.last_msg = true;
-       		memset(buf, 0, sizeof(buf));
-       		stream = pb_ostream_from_buffer(buf, sizeof(buf));
-       		pb_encode(&stream, Accel_fields, &a);
-       		vTaskDelay(100 / portTICK_PERIOD_MS);
-       		xEventGroupSetBits(SpiEventGroup, BIT2);
-       		s = 0;
-       		r = 0;
-   			while(s < stream.bytes_written)
-  			{
-   				s = write(cs , buf, stream.bytes_written);
-   			}
-   			while(1)
-   			{
-   				memset(&recv_buf, 0, 1);
-   				r = recv(cs, &recv_buf, sizeof(uint8_t), MSG_WAITALL);
-   				if(recv_buf == 0)
-				{
- 					continue;
-   				}
-   				else if(recv_buf == 0x18 || recv_buf == 0xE7)
- 				{
-   					break; // received right response
-				}
-   			}
-     			if(recv_buf == 0x18)
-       			{
-     				indic(1);
-     				break; // success
-       			}
-    			else
-       			{
-    				continue; // failure
-      			}
-        	}
-           	indic(3);
        		close(cs);
 
-//            while(1)
-//            {
-////            	const TickType_t xTicksToWait = 1000000 / portTICK_PERIOD_MS;
-//            	xEventGroupWaitBits(
-//            	                 SpiEventGroup,    // The event group being tested.
-//            	                 BIT0 | BIT3,  // The bits within the event group to wait for.
-//            	                 pdTRUE,         // BIT_0 and BIT_4 should be cleared before returning.
-//            	                 pdFALSE,        // Don't wait for both bits, either bit will do.
-//            	                 portMAX_DELAY);
-//            	r = 0;
-//            	if(!(xEventGroupGetBits(SpiEventGroup) & BIT2))
-//            	{
-//            		xEventGroupClearBits(SpiEventGroup, BIT2);
-//            		while(r < sizeof(buff1))
-//            		{
-//            			r = write(cs , buff1, sizeof(buff1));
-//            		}
-//            	}
-//            	r = 0;
-//            	while(r < sizeof(buff2))
-//            	{
-//            		r = write(cs , buff2, sizeof(buff2));
-//            	}
-//            	indic(1);
-//            	vTaskDelay(50 / portTICK_PERIOD_MS);
-//            	xEventGroupSetBits(SpiEventGroup, BIT1);
-//            	if(xEventGroupGetBits(SpiEventGroup) & BIT3)
-//            	{
-//            		Accel a = Accel_init_default;
-//            		a.last_msg = true;
-//            		memset(buff1, 0, BUFF_SIZE);
-//            		pb_ostream_t stream = pb_ostream_from_buffer(buff1, sizeof(buff1));
-//            		pb_encode(&stream, Accel_fields, &a);
-//            		vTaskDelay(100 / portTICK_PERIOD_MS);
-//            		xEventGroupSetBits(SpiEventGroup, BIT2);
-//            		write(cs , buff1, sizeof(buff1));
-//            		indic(3);
-//            		  close(cs);
-//            		break;
-//            	}
-
-//            }
-
-
-//            {
-//                ESP_LOGE(TAG, "... Send failed \n");
-//                close(s);
-//                vTaskDelay(4000 / portTICK_PERIOD_MS);
-//                continue;
-//            }
-//            ESP_LOGI(TAG, "... socket send success");
-//            indic(4);
         }
         ESP_LOGI(TAG, "... server will be opened in 5 seconds");
         vTaskDelay(5000 / portTICK_PERIOD_MS);

@@ -38,6 +38,7 @@
 #include "tcp_server.h"
 #include "esp_heap_caps.h"
 #include "esp_heap_caps_init.h"
+#include "button.h"
 
 #define PIN_NUM_VSPI_Q 19 //miso
 #define PIN_NUM_VSPI_D 23 //mosi
@@ -51,7 +52,7 @@
 #define DMA_BUFF_SIZE	EL_IN_BURST*7*2
 
 
-
+uint8_t  dlpf_acc;
 TaskHandle_t xTaskToNotify;
 const esp_partition_t *partition;
 uint8_t data_size[2 * NUM_OF_FIELDS + 34];

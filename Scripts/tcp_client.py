@@ -38,40 +38,58 @@ b_fail = b'\xe7' # 11100111
 n_fail = 0
 n_sucss = 0
 res = mssg_pb2.FinalResult()
+dlpf_s = 0
+num = 0
 
 while True:
 
-    data = sock.recv(1024)
-    if not data:
-        continue
-        print("there is no data")
-    try:
-        accel.ParseFromString(data)
-    except Exception as error:
-        print('Caught this error: ' + repr(error))
-        print("data = ", len(data))
-        print(data)
-        sock.sendall(b_fail)
-        print(n_fail, n_sucss)
-        n_fail += 1
-        continue
-    # print(accel)
-    sock.sendall(b_success)
-    n_sucss += 1
-    if((n_sucss + n_fail) % 100 == 0):
-        print(n_fail, n_sucss)
-    # print(data)
-    if accel.last_msg:
-        # print(accel)
+    dlpf_s = input("dlpf setting (0-7, 10 for exit): ")
+    dlpf_s = int(dlpf_s)
+    if(dlpf_s == 10):
         break
-    if accel.up:
-        res.up.extend([accel])
-    else:
-        res.down.extend([accel])
-print(res)
+    if(dlpf_s < 0 or dlpf_s > 10):
+        continue
+    sock.sendall(bytes([dlpf_s | (1<<7)]))
+
+    while True:
+        data = sock.recv(1024)
+    
+    
+    
+        if not data:
+            print("there is no data")
+            continue       
+        try:
+            accel.ParseFromString(data)
+        except Exception as error:
+            print('Caught this error: ' + repr(error))
+            print("data = ", len(data))
+            print(data)
+            sock.sendall(b_fail)
+            print(n_fail, n_sucss)
+            n_fail += 1
+            continue
+        # print(accel)
+        sock.sendall(b_success)
+        n_sucss += 1
+        if((n_sucss + n_fail) % 100 == 0):
+            print(n_fail, n_sucss)
+        # print(data)
+        if accel.last_msg:
+            # print(accel)
+            break
+        if accel.up:
+            res.up.extend([accel])
+        else:
+            res.down.extend([accel])
+    res_encoded = res.SerializeToString()
+    file = open("result_dlpf_{}_num_{}.txt".format(dlpf_s, num), "wb+")
+    num += 1
+    file.write(res_encoded)
+    file.close()
+    res = mssg_pb2.FinalResult()
+# print(res)
 sock.close()
-res_encoded = res.SerializeToString()
-file = open("result_with_gyro_6.txt", "wb+")
-file.write(res_encoded)
-file.close()
+
+
 print("Overall, ", len(res.up), " + ", len(res.down), " elements")

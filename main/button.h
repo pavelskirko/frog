@@ -1,3 +1,7 @@
+#ifndef BUTTON_H_
+#define BUTTON_H_
+
+
 #define PIN_BIT(x) (1ULL<<x)
 
 #define BUTTON_DOWN (1)
@@ -11,3 +15,6 @@ typedef struct {
 } button_event_t;
 
 QueueHandle_t * button_init(unsigned long long pin_select);
+
+
+#endif

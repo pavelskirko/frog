@@ -103,7 +103,7 @@ class LandGear:
         # self.just_rotate_everything(np.array([45,0,45]))
         self.rotate_by_gyro_angle()
         
-        self.acc_rotation()
+        # self.acc_rotation()
         self.add_gravity()
         self.point_of_shock = self.get_shock_time(10)
         
@@ -112,7 +112,7 @@ class LandGear:
         # self.moving_avrg_acc(1)
         self.calc_velocity()
         self.calc_position()
-        # self.shock_velocity()
+        self.shock_velocity()
         self.calculate_movement()
         self.calculate_force(100)
         self.plot_force_movement()
@@ -146,8 +146,8 @@ class LandGear:
         h = plt.ylabel('F, kN', verticalalignment='top', y=1.0, fontsize='x-large')
         h.set_rotation(0)
         max_point = np.argmax(self.stock_movement)
-        plt.plot(self.stock_movement[:max_point], self.force[:max_point], ".")
-        plt.plot(self.stock_movement[max_point:], self.force[max_point:], ".")
+        plt.plot(self.stock_movement[:max_point], self.force[:max_point])
+        plt.plot(self.stock_movement[max_point:], self.force[max_point:])
         xmin, xmax = ax1.get_xaxis().get_view_interval()
         ymin, ymax = ax1.get_yaxis().get_view_interval()
         ax1.add_artist(Line2D((xmin, xmax), (ymin, ymin), color='black', linewidth=2))
@@ -196,8 +196,14 @@ class LandGear:
             mov_arr_down = np.append(mov_arr_down, [mov])
 
         mov_arr = np.array([0])
+        counter = 10
         for i, el in enumerate(mov_arr_up):
             mov_arr = np.append(mov_arr, [mov_arr[-1] + mov_arr_up[i] - mov_arr_down[i]])
+            if mov_arr[-1] < mov_arr[-2] and counter != 0:
+                counter -= 1
+            if counter == 0 and mov_arr[-1] > 0 and mov_arr[-2] < 0:
+                break
+        time_arr = time_arr[:len(mov_arr)]
 
         plt.plot(time_arr, mov_arr)
         plt.show()
@@ -212,6 +218,7 @@ class LandGear:
             time_arr = np.append(time_arr, [el.time])
         # plt.plot(time_arr, acc_arr)
         # plt.show()
+        acc_arr = acc_arr[:len(self.stock_movement)]
         self.force = acc_arr * mass * 10**-6    
 
     def get_shock_time(self, tolerance):
@@ -317,7 +324,7 @@ class LandGear:
         v_up = self.up_acc_data[self.point_of_shock[1]].veloc
         v_down = self.i_down_acc_data[self.point_of_shock[1]].veloc
         v_up_abs = np.sqrt(np.sum(np.power(v_up, 2)))
-        v_up_down = np.sqrt(np.sum(np.power(v_down, 2)))
+        v_down_abs = np.sqrt(np.sum(np.power(v_down, 2)))
         self.up_acc_data[self.point_of_shock[1]].veloc = v_up * v_down_abs / v_up_abs
         self.i_down_acc_data[self.point_of_shock[1]].veloc = v_up * v_up_abs / v_down_abs
         for i, el in enumerate(self.up_acc_data[self.point_of_shock[1]:self.point_of_finish[1]]):

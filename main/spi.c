@@ -80,15 +80,25 @@ void accel_init(spi_device_handle_t * spi)
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
+	if(dlpf_acc == 0)
+	{
+		trans.addr=ICM20602_ACCEL_CONFIG2;
+		trans.tx_data[0]=(1<<3); //  DLPF acc
+		ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+		ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+	}
+
 	trans.addr=ICM20602_ACCEL_CONFIG2;
-	trans.tx_data[0]=3; //  DLPF acc
+	trans.tx_data[0]=dlpf_acc; //  DLPF acc
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 	trans.addr=ICM20602_USER_CTRL;
-	trans.tx_data[0]=(1<<6); // fifo enable
+	trans.tx_data[0]=(1<<6) | (1<<2); // fifo enable | reset fifo
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+
+	vTaskDelay(1 / portTICK_PERIOD_MS);
 
 //	trans.addr=ICM20602_ACCEL_INTEL_CTRL;
 //	trans.tx_data[0]=0; // intell control
@@ -181,54 +191,53 @@ void IRAM_ATTR get_data(void *pvParameter)
 	spi_device_handle_t spi2;
 	spi_device_handle_t spi3;
 	spi_setup(&spi1, &spi2, &spi3);
-	accel_init(&spi1);
-	accel_init(&spi2);
-//	acc_who_i_am(&spi1, 0);  // test icm-20602: write to who_am_i global variable dec18
-//	acc_who_i_am(&spi2, 1);
 	uint32_t num1 = 0;
 	uint32_t num2 = 0;
 	uint32_t adc_buf;
-//	get_data_adc(&spi3, &adc_buf);
 	uint8_t buf[MAX_PRTBUF_SIZE*EL_IN_BURST];
 	pb_ostream_t stream = pb_ostream_from_buffer(buf, sizeof(buf));
-//	pb_istream_t stream_in = pb_istream_from_buffer(buf, sizeof(buf));
 	partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "storage");
 	esp_partition_erase_range(partition, 0, partition->size);
 	Accel a;
-//	pb_ostream_t stream1 = pb_ostream_from_buffer(buff1, sizeof(buff1));
-//	pb_ostream_t stream2 = pb_ostream_from_buffer(buff2, sizeof(buff2));
-//	xTaskToNotify = xTaskGetCurrentTaskHandle();
-//	dma = heap_caps_get_largest_free_block(MALLOC_CAP_DMA);
 	int8_t * dma_buf = (int8_t *)heap_caps_malloc(DMA_BUFF_SIZE, MALLOC_CAP_DMA);
 	uint64_t time;
 	vTaskDelay(100 / portTICK_PERIOD_MS);
 	gyro = get_data_acc(&spi1, ICM20602_GYRO_XOUT_L, ICM20602_GYRO_XOUT_H);
-//	uint64_t pr_time1 = 0;
-//	uint64_t pr_time2 = 0;
-//	ulTaskNotifyTake(pdTRUE,  portMAX_DELAY);
-	xEventGroupWaitBits(SpiEventGroup,    // The event group being tested.
-						BIT5,  // The bits within the event group to wait for.
-						pdTRUE,         // should be cleared before returning.
-						pdFALSE,        // Don't wait for both bits, either bit will do.
-						portMAX_DELAY );
-//	*********Blink 3 times*****************************************
-	gpio_set_level(26, 1);
-	vTaskDelay(1000 / portTICK_PERIOD_MS);
-	for(int i = 0; i < 2; i++)
+
+	while(1)
 	{
-	   	gpio_set_level(26, 0);
-	   	vTaskDelay(1000 / portTICK_PERIOD_MS);
-	   	gpio_set_level(26, 1);
-	   	vTaskDelay(1000 / portTICK_PERIOD_MS);
-	}
-	gpio_set_level(26, 0);
+
+		xEventGroupWaitBits(SpiEventGroup,
+						BIT5 | BIT2,  // BIT5 -- button, BIT2 -- setting received
+						pdTRUE,         // should be cleared before returning.
+						pdTRUE,        //  wait for both bits, either bit will do.
+						portMAX_DELAY );
+
+		xEventGroupClearBits(SpiEventGroup, BIT5 | BIT2);
+		accel_init(&spi1);
+		accel_init(&spi2);
+
+		num1 = 0;
+		num2 = 0;
+//	*********Blink 3 times*****************************************
+		gpio_set_level(26, 1);
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		for(int i = 0; i < 2; i++)
+		{
+	   		gpio_set_level(26, 0);
+	   		vTaskDelay(1000 / portTICK_PERIOD_MS);
+	   		gpio_set_level(26, 1);
+	   		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		}
+		gpio_set_level(26, 0);
 
 //	***************************************************************
 
-
-	timer_start(0, 0);
-	while(num1 < NUM_OF_FIELDS - EL_IN_BURST || num2 < NUM_OF_FIELDS - EL_IN_BURST)
-	{
+		vTaskSuspend(button_task_handle);
+		timer_start(0, 0);
+		timer_set_counter_value(0,0,0);
+		while(num1 < NUM_OF_FIELDS - EL_IN_BURST || num2 < NUM_OF_FIELDS - EL_IN_BURST)
+		{
 //		for(uint8_t j = 0; j < 4; j++)
 //		{
 //		    a1[j] = (Accel){1, 1, 1, 1, 1, false, 1};
@@ -242,37 +251,37 @@ void IRAM_ATTR get_data(void *pvParameter)
 //		num2++;
 //		}
 
-		if(num1 < NUM_OF_FIELDS - EL_IN_BURST)
-    	{
-    		while(1)
+			if(num1 < NUM_OF_FIELDS - EL_IN_BURST)
     		{
-    			if (check_intr(&spi1) & (1<<6))
+    			while(1)
     			{
-    				break;
+    				if (check_intr(&spi1) & (1<<6))
+    				{
+    					break;
+    				}
+    				else
+    				{
+    					continue;
+    				}
     			}
-    			else
+
+    			memset(dma_buf, 0, DMA_BUFF_SIZE);
+    			memset(buf, 0, sizeof(buf));
+    			get_data_acc_fifo(&spi1, dma_buf);
+    			timer_get_counter_value(0,0, &time);
+
+    			uint8_t count = 0;
+    			for(uint8_t i = 0; i < EL_IN_BURST; i++)
     			{
-    				continue;
-    			}
-    		}
+    				memset(&a, 0, sizeof(Accel));
 
-    		memset(dma_buf, 0, DMA_BUFF_SIZE);
-    		memset(buf, 0, sizeof(buf));
-    		get_data_acc_fifo(&spi1, dma_buf);
-    		timer_get_counter_value(0,0, &time);
-
-    		uint8_t count = 0;
-    		for(uint8_t i = 0; i < EL_IN_BURST; i++)
-    		{
-    			memset(&a, 0, sizeof(Accel));
-
-    			a.a_x = (int16_t)read_low_high_byte(count, dma_buf);
-    			a.a_y = (int16_t)read_low_high_byte(count+1, dma_buf);
-    			a.a_z = (int16_t)read_low_high_byte(count+2, dma_buf);
-    			temp = (int16_t)read_low_high_byte(count+3, dma_buf);
-    			a.g_x = (int16_t)read_low_high_byte(count+4, dma_buf);
-    			a.g_y = (int16_t)read_low_high_byte(count+5, dma_buf);
-    			a.g_z = (int16_t)read_low_high_byte(count+6, dma_buf);
+    				a.a_x = (int16_t)read_low_high_byte(count, dma_buf);
+    				a.a_y = (int16_t)read_low_high_byte(count+1, dma_buf);
+    				a.a_z = (int16_t)read_low_high_byte(count+2, dma_buf);
+    				temp = (int16_t)read_low_high_byte(count+3, dma_buf);
+    				a.g_x = (int16_t)read_low_high_byte(count+4, dma_buf);
+    				a.g_y = (int16_t)read_low_high_byte(count+5, dma_buf);
+    				a.g_z = (int16_t)read_low_high_byte(count+6, dma_buf);
 
 //    			a.a_x = dma_buf[count];
 //    			a.a_y = dma_buf[count+1];
@@ -281,25 +290,25 @@ void IRAM_ATTR get_data(void *pvParameter)
 //    			a.g_x = dma_buf[count+4];
 //    			a.g_y = dma_buf[count+5];
 //    			a.g_z = dma_buf[count+6];
-    			a.number = num1 + i;
-    			count = count + 7;
-    			a.up = true;
-    			a.last_msg = false;
-    			if(i > 0)
-    			{
-    				a.time = 0;
-    			}
-    			else
-    			{
-    				a.time = (uint32_t) ((time) / 80); // to microsec
-    			}
+    				a.number = num1 + i;
+    				count = count + 7;
+    				a.up = true;
+    				a.last_msg = false;
+    				if(i > 0)
+    				{
+    					a.time = 0;
+    				}
+    				else
+    				{
+    					a.time = (uint32_t) ((time) / 80); // to microsec
+    				}
 
-    			size_t d_size = 0;
-    			pb_get_encoded_size(&d_size, Accel_fields, &a);
-    			data_size[num1+i] = (uint8_t)d_size;
-    			memset(&stream, 0, sizeof(pb_ostream_t));
-    			stream = pb_ostream_from_buffer(buf + MAX_PRTBUF_SIZE*i, MAX_PRTBUF_SIZE);
-    			pb_encode(&stream, Accel_fields, &a);
+    				size_t d_size = 0;
+    				pb_get_encoded_size(&d_size, Accel_fields, &a);
+    				data_size[num1+i] = (uint8_t)d_size;
+    				memset(&stream, 0, sizeof(pb_ostream_t));
+    				stream = pb_ostream_from_buffer(buf + MAX_PRTBUF_SIZE*i, MAX_PRTBUF_SIZE);
+    				pb_encode(&stream, Accel_fields, &a);
 
 //    			memset(buf, 0, sizeof(buf));
 //    			memset(&stream_in, 0, sizeof(pb_istream_t));
@@ -308,41 +317,41 @@ void IRAM_ATTR get_data(void *pvParameter)
 //
 //    			pb_decode(&stream_in, Accel_fields, &a3);
 
-    		}
-			esp_partition_write(partition, (sizeof(buf))*(num1 / EL_IN_BURST), buf, sizeof(buf));
-    		num1 = num1 + EL_IN_BURST;
-    	}
-
-    	if(num2 < NUM_OF_FIELDS - EL_IN_BURST)
-    	{
-    		while(1)
-    		{
-    			if (check_intr(&spi2) & (1<<6))
-    			{
-    				break;
     			}
-    			else
-    			{
-    				continue;
-    			}
+				esp_partition_write(partition, (sizeof(buf))*(num1 / EL_IN_BURST), buf, sizeof(buf));
+    			num1 = num1 + EL_IN_BURST;
     		}
 
-   		    memset(dma_buf, 0, DMA_BUFF_SIZE);
-   		    memset(buf, 0, sizeof(buf));
-   		    get_data_acc_fifo(&spi2, dma_buf);
-   		    timer_get_counter_value(0,0, &time);
-
-    		uint8_t count = 0;
-    		for(uint8_t i = 0; i < EL_IN_BURST; i++)
+    		if(num2 < NUM_OF_FIELDS - EL_IN_BURST)
     		{
-    			memset(&a, 0, sizeof(Accel));
-    			a.a_x = (int16_t)read_low_high_byte(count, dma_buf);
-    			a.a_y = (int16_t)read_low_high_byte(count+1, dma_buf);
-    			a.a_z = (int16_t)read_low_high_byte(count+2, dma_buf);
-    			temp = (int16_t)read_low_high_byte(count+3, dma_buf);
-    			a.g_x = (int16_t)read_low_high_byte(count+4, dma_buf);
-    			a.g_y = (int16_t)read_low_high_byte(count+5, dma_buf);
-    			a.g_z = (int16_t)read_low_high_byte(count+6, dma_buf);
+    			while(1)
+    			{
+    				if (check_intr(&spi2) & (1<<6))
+    				{
+    					break;
+    				}
+    				else
+    				{
+    					continue;
+    				}
+    			}
+
+   		    	memset(dma_buf, 0, DMA_BUFF_SIZE);
+   		    	memset(buf, 0, sizeof(buf));
+   		    	get_data_acc_fifo(&spi2, dma_buf);
+   		    	timer_get_counter_value(0,0, &time);
+
+    			uint8_t count = 0;
+    			for(uint8_t i = 0; i < EL_IN_BURST; i++)
+    			{
+    				memset(&a, 0, sizeof(Accel));
+    				a.a_x = (int16_t)read_low_high_byte(count, dma_buf);
+    				a.a_y = (int16_t)read_low_high_byte(count+1, dma_buf);
+    				a.a_z = (int16_t)read_low_high_byte(count+2, dma_buf);
+    				temp = (int16_t)read_low_high_byte(count+3, dma_buf);
+    				a.g_x = (int16_t)read_low_high_byte(count+4, dma_buf);
+    				a.g_y = (int16_t)read_low_high_byte(count+5, dma_buf);
+    				a.g_z = (int16_t)read_low_high_byte(count+6, dma_buf);
 
 
 //    			a1[i].a_x = dma_buf[count];
@@ -352,35 +361,37 @@ void IRAM_ATTR get_data(void *pvParameter)
 //    			a1[i].g_x = dma_buf[count+4];
 //    			a1[i].g_y = dma_buf[count+5];
 //    			a1[i].g_z = dma_buf[count+6];
-    			a.number = num2 + i;
-    		    count = count + 7;
-    		    a.up = false;
-    		    a.last_msg = false;
-    		    if(i > 0)
-    		    {
-    		    	a.time = 0;
-    		    }
-    		    else
-    		    {
-    		    	a.time = (uint32_t) ((time) / 80); // to microsec
-    		    }
-    			size_t d_size = 0;
-    			pb_get_encoded_size(&d_size, Accel_fields, &a);
-    			data_size[NUM_OF_FIELDS + num2 + i] = (uint8_t)d_size;
+    				a.number = num2 + i;
+    		    	count = count + 7;
+    		    	a.up = false;
+    		    	a.last_msg = false;
+    		    	if(i > 0)
+    		    	{
+    		    		a.time = 0;
+    		    	}
+    		    	else
+    		    	{
+    		    		a.time = (uint32_t) ((time) / 80); // to microsec
+    		    	}
+    				size_t d_size = 0;
+    				pb_get_encoded_size(&d_size, Accel_fields, &a);
+    				data_size[NUM_OF_FIELDS + num2 + i] = (uint8_t)d_size;
 
-    		    memset(&stream, 0, sizeof(pb_ostream_t));
-    		    stream = pb_ostream_from_buffer(buf + MAX_PRTBUF_SIZE*i, MAX_PRTBUF_SIZE);
-    		    pb_encode(&stream, Accel_fields, &a);
+    		    	memset(&stream, 0, sizeof(pb_ostream_t));
+    		    	stream = pb_ostream_from_buffer(buf + MAX_PRTBUF_SIZE*i, MAX_PRTBUF_SIZE);
+    		    	pb_encode(&stream, Accel_fields, &a);
 
+    			}
+    			esp_partition_write(partition, (sizeof(buf))*(NUM_OF_FIELDS + num2) / EL_IN_BURST, buf, sizeof(buf));
+    			num2 = num2 + EL_IN_BURST;
     		}
-    		esp_partition_write(partition, (sizeof(buf))*(NUM_OF_FIELDS + num2) / EL_IN_BURST, buf, sizeof(buf));
-    		num2 = num2 + EL_IN_BURST;
-    	}
 
-    }
-	xEventGroupSetBits(SpiEventGroup, BIT1);
-	vTaskDelay(50 / portTICK_PERIOD_MS);
-	indic(3);
+    	}
+		xEventGroupSetBits(SpiEventGroup, BIT1);
+		indic(3);
+		vTaskResume(button_task_handle);
+
+	}
 //	while(1)
 //	{
 //		for(uint16_t i = 0; i < NUM_OF_FIELDS; i++)

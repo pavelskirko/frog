@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='mssg.proto',
   package='',
   syntax='proto3',
-  serialized_pb=_b('\n\nmssg.proto\"\x91\x01\n\x05\x41\x63\x63\x65l\x12\x0b\n\x03\x61_x\x18\x01 \x01(\x05\x12\x0b\n\x03\x61_y\x18\x02 \x01(\x05\x12\x0b\n\x03\x61_z\x18\x03 \x01(\x05\x12\x0c\n\x04time\x18\x04 \x01(\r\x12\n\n\x02up\x18\x05 \x01(\x08\x12\x10\n\x08last_msg\x18\x06 \x01(\x08\x12\x0e\n\x06number\x18\x07 \x01(\r\x12\x0b\n\x03g_x\x18\x08 \x01(\x05\x12\x0b\n\x03g_y\x18\t \x01(\x05\x12\x0b\n\x03g_z\x18\n \x01(\x05\"R\n\x0b\x46inalResult\x12\x12\n\x02up\x18\x01 \x03(\x0b\x32\x06.Accel\x12\x14\n\x04\x64own\x18\x02 \x03(\x0b\x32\x06.Accel\x12\x0c\n\x04tens\x18\x03 \x03(\x05\x12\x0b\n\x03log\x18\x04 \x03(\tb\x06proto3')
+  serialized_pb=_b('\n\nmssg.proto\"\xa2\x01\n\x05\x41\x63\x63\x65l\x12\x0b\n\x03\x61_x\x18\x01 \x01(\x05\x12\x0b\n\x03\x61_y\x18\x02 \x01(\x05\x12\x0b\n\x03\x61_z\x18\x03 \x01(\x05\x12\x0c\n\x04time\x18\x04 \x01(\r\x12\n\n\x02up\x18\x05 \x01(\x08\x12\x10\n\x08last_msg\x18\x06 \x01(\x08\x12\x0e\n\x06number\x18\x07 \x01(\r\x12\x0b\n\x03g_x\x18\x08 \x01(\x05\x12\x0b\n\x03g_y\x18\t \x01(\x05\x12\x0b\n\x03g_z\x18\n \x01(\x05\x12\x0f\n\x07setting\x18\x0b \x01(\r\"R\n\x0b\x46inalResult\x12\x12\n\x02up\x18\x01 \x03(\x0b\x32\x06.Accel\x12\x14\n\x04\x64own\x18\x02 \x03(\x0b\x32\x06.Accel\x12\x0c\n\x04tens\x18\x03 \x03(\x05\x12\x0b\n\x03log\x18\x04 \x03(\tb\x06proto3')
 )
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
@@ -103,6 +103,13 @@ _ACCEL = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
+    _descriptor.FieldDescriptor(
+      name='setting', full_name='Accel.setting', index=10,
+      number=11, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
   ],
   extensions=[
   ],
@@ -116,7 +123,7 @@ _ACCEL = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=15,
-  serialized_end=160,
+  serialized_end=177,
 )
 
 
@@ -167,8 +174,8 @@ _FINALRESULT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=162,
-  serialized_end=244,
+  serialized_start=179,
+  serialized_end=261,
 )
 
 _FINALRESULT.fields_by_name['up'].message_type = _ACCEL

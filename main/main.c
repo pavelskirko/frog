@@ -93,10 +93,10 @@ void app_main(void)
 
 	timer_setup();
 
-	 xTaskCreate(tcp_server,"tcp_server",4096,NULL,5,NULL);
+	xTaskCreatePinnedToCore(tcp_server,"tcp_server",4096*8,NULL,5,NULL, 0); // Core 0
 //	 xTaskCreate(tcp_client_task, "tcp_client", 4096, NULL, 5, NULL);
-	 xTaskCreate(ok_blink_task, "ok_blink", 1024*2, NULL, 5, NULL);
-	 xTaskCreate(get_data, "get_data", 8096*8, NULL, 5, NULL);
+	 xTaskCreatePinnedToCore(ok_blink_task, "ok_blink", 1024*2, NULL, 1, NULL, 0); // Core 0
+	 xTaskCreatePinnedToCore(get_data, "get_data", 8096*4, NULL, 5, NULL, 1); // Core 1
 
 	 button_event_t ev;
 	 QueueHandle_t button_events = button_init(PIN_BIT(BUTTON_GPIO));
@@ -104,7 +104,6 @@ void app_main(void)
 	     if (xQueueReceive(button_events, &ev, 1000/portTICK_PERIOD_MS)) {
 	         if ((ev.pin == BUTTON_GPIO) && (ev.event == BUTTON_DOWN)) {
 	        	 xEventGroupSetBits(SpiEventGroup, BIT5);
-	        	 vTaskSuspend(button_task_handle);
 	         }
 
 	     }
