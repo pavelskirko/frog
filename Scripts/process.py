@@ -4,6 +4,21 @@ import mssg_pb2
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D 
 from mpl_toolkits.mplot3d import Axes3D
+import scipy.optimize as opt
+import string
+
+def func(x, a, b, c, d, e):
+    return a * np.power(x, 4) + b * np.power(x, 3) + c * np.power(x, 2) + d * x + e
+
+def der_func(x, a, b, c, d):
+    return a * np.power(x, 3) + b * np.power(x, 2) + c * x + d
+
+def approx(x, y, yerr):
+    ap = opt.curve_fit(func, x, y, method="lm", sigma=yerr, absolute_sigma=True, maxfev=10000)
+    perr = np.sqrt(np.diag(ap[1]))
+    for i, el in enumerate(list(string.ascii_lowercase)[0:len(ap[0])]):
+        print(str(el) + ': ' + str(ap[0][i]) + ' err: ' + str(perr[i]))
+    return ap[0]
 
 class AccelData:
     def __init__(self, accel=[0,0,0], gyro=[0,0,0], number=0, time=0):
@@ -79,6 +94,8 @@ class LandGear:
         self.point_of_shock = [0, 0]
         self.stock_movement = []
         self.force = []
+        self.c_compr = [0,0,0,0,0]
+        self.c_decompr = [0,0,0,0,0]
 
     def __str__(self):
         printed_string = 'UP                                      DOWN\n'
@@ -93,6 +110,7 @@ class LandGear:
         self.fill_time_gaps()
         self.interpolate()
         self.cut_edges(32)
+        # self.moving_avrg_acc(1)
         self.match_numbers()
         self.point_of_start = self.get_start_time(0.02)
         self.point_of_finish = self.get_finish_time(0.018)
@@ -107,15 +125,16 @@ class LandGear:
         self.add_gravity()
         self.point_of_shock = self.get_shock_time(10)
         
-        self.zeroing_resting_state()
+        # self.zeroing_resting_state()
         # self.rotate_around_z()
-        # self.moving_avrg_acc(1)
+        
         self.calc_velocity()
         self.calc_position()
         self.shock_velocity()
-        self.calculate_movement()
-        self.calculate_force(100)
-        self.plot_force_movement()
+        self.calculate_movement(140)
+        # self.calculate_force(100,140)
+        # self.plot_force_movement()
+        self.veloc_approx()
         # self.plot_3d_position()
         # self.plot_angle_time()
         # self.plot_acc_time()
@@ -124,6 +143,7 @@ class LandGear:
 
         # self.plot_ax_pos_time()
         # self.plot_pos_time()
+
 
     def shock_velocity(self):
         v_up = self.up_acc_data[self.point_of_shock[1]].veloc
@@ -145,14 +165,67 @@ class LandGear:
         plt.xlabel('$\\Delta x{, }mm$', horizontalalignment='right', x=1.0, fontsize='x-large')
         h = plt.ylabel('F, kN', verticalalignment='top', y=1.0, fontsize='x-large')
         h.set_rotation(0)
+
         max_point = np.argmax(self.stock_movement)
-        plt.plot(self.stock_movement[:max_point], self.force[:max_point])
-        plt.plot(self.stock_movement[max_point:], self.force[max_point:])
+        list_to_delete = []
+        for i, el in enumerate(self.force[:max_point]):
+            if el < 0.3:
+                list_to_delete.append(i)
+        for i in sorted(list_to_delete, reverse=True):
+            self.force = np.delete(self.force, i)
+            self.stock_movement = np.delete(self.stock_movement, i)
+        max_point = np.argmax(self.stock_movement)
+        divider = 100
+        max_mov = np.amax(self.stock_movement)
+        avrg_force = [np.array([])]
+        avrg_mov = [max_mov/divider]
+        mov_slice = max_mov/divider
+        for i, el in enumerate(self.stock_movement[:max_point]):
+            if el < mov_slice:
+                avrg_force[-1] = np.append(avrg_force[-1], self.force[i])
+            else:
+                mov_slice += max_mov/divider  
+                avrg_force[-1] = np.mean(avrg_force[-1])
+                if avrg_force[-1] != avrg_force[-1]:
+                    avrg_force.pop()
+                    avrg_mov.pop()
+                avrg_force.append([np.array([])])
+                    
+                avrg_mov.append(mov_slice)
+        avrg_force[-1] = np.mean(avrg_force[-1])
+        t = np.arange(0, max_mov, 0.001)
+        coeff = approx(avrg_mov, avrg_force)
+        plt.plot(t, func(t, coeff[0], coeff[1], coeff[2], coeff[3], coeff[4]), color="#fcb716")
+        plt.plot(avrg_mov, avrg_force,".", color="#fcb716", label="compression") # orange
+
+        avrg_force = [np.array([])]
+        avrg_mov = [max_mov]
+        mov_slice = max_mov
+        for i, el in enumerate(self.stock_movement[max_point:]):
+            if el > mov_slice:
+                avrg_force[-1] = np.append(avrg_force[-1], self.force[i])
+            else:
+                mov_slice -= max_mov/divider  
+                avrg_force[-1] = np.mean(avrg_force[-1])
+                if avrg_force[-1] != avrg_force[-1]:
+                    avrg_force.pop()
+                    avrg_mov.pop()
+                avrg_force.append([np.array([])])        
+                avrg_mov.append(mov_slice)
+        avrg_force[-1] = np.mean(avrg_force[-1])
+        t = np.arange(0, max_mov, 0.001)
+        coeff = approx(avrg_mov, avrg_force)
+        plt.plot(t, func(t, coeff[0], coeff[1], coeff[2], coeff[3], coeff[4]), color="#fcb716")
+        plt.plot(avrg_mov, avrg_force, ".", color="#4daf4a", label="decompression") # green
+
+        # plt.plot(self.stock_movement[:max_point], self.force[:max_point],".", color="#fcb716", label="compression") # orange
+        # plt.plot(self.stock_movement[max_point:], self.force[max_point:], ".", color="#4daf4a", label="decompression") # green
         xmin, xmax = ax1.get_xaxis().get_view_interval()
         ymin, ymax = ax1.get_yaxis().get_view_interval()
         ax1.add_artist(Line2D((xmin, xmax), (ymin, ymin), color='black', linewidth=2))
         ax1.add_artist(Line2D((xmin, xmin), (ymin, ymax), color='black', linewidth=2))
         plt.grid()
+        plt.legend()
         plt.show()
 
     def acc_rotation(self):
@@ -182,16 +255,16 @@ class LandGear:
         # for el in angle_down_arr:
         #     print(el)
 
-    def calculate_movement(self):
+    def calculate_movement(self, stiction):
         mov_arr_up = np.array([])
         time_arr = np.array([0])
-        for el in self.up_acc_data[self.point_of_shock[1]:self.point_of_finish[1]]:
+        for el in self.up_acc_data[self.point_of_shock[1]+stiction:self.point_of_finish[1]]:
             mov = np.abs(np.sqrt(np.sum(np.power(el.pos, 2))) - np.sqrt(np.sum(np.power(self.up_acc_data[el.number + 1].pos, 2))))
             mov_arr_up = np.append(mov_arr_up, [mov])
             time_arr = np.append(time_arr, [el.time])
 
         mov_arr_down = np.array([])
-        for el in self.i_down_acc_data[self.point_of_shock[1]:self.point_of_finish[1]]:
+        for el in self.i_down_acc_data[self.point_of_shock[1]+stiction:self.point_of_finish[1]]:
             mov = np.abs(np.sqrt(np.sum(np.power(el.pos, 2))) - np.sqrt(np.sum(np.power(self.i_down_acc_data[el.number + 1].pos, 2))))
             mov_arr_down = np.append(mov_arr_down, [mov])
 
@@ -203,23 +276,74 @@ class LandGear:
                 counter -= 1
             if counter == 0 and mov_arr[-1] > 0 and mov_arr[-2] < 0:
                 break
+        print(mov_arr)
+        stiction = 0
+        for i, el in enumerate(mov_arr[1:]):
+            if mov_arr[i] > 0 and el < 0:
+                stiction = i
+                break
+        # print(stiction)
+
         time_arr = time_arr[:len(mov_arr)]
 
-        plt.plot(time_arr, mov_arr)
-        plt.show()
+        # plt.plot(time_arr, mov_arr)
+        # plt.show()
         self.stock_movement = np.abs(mov_arr * 10**-12)
 
-    def calculate_force(self, mass):
+    def calculate_force(self, mass, stiction):
         acc_arr = np.array([0])
         time_arr = np.array([0])
-        for el in self.up_acc_data[self.point_of_shock[1]:self.point_of_finish[1]]:
+        for el in self.up_acc_data[self.point_of_shock[1]+stiction:self.point_of_finish[1]]:
             acc_arr = np.append(acc_arr, np.abs(np.sqrt(np.sum(np.power(el.accel, 2))) - \
                 np.sqrt(np.sum(np.power(self.i_down_acc_data[el.number].accel, 2)))))
             time_arr = np.append(time_arr, [el.time])
         # plt.plot(time_arr, acc_arr)
         # plt.show()
         acc_arr = acc_arr[:len(self.stock_movement)]
-        self.force = acc_arr * mass * 10**-6    
+        self.force = acc_arr * mass * 10**-6   
+
+    def veloc_approx(self):
+        vel_arr = np.array([])
+        time_arr = np.array([])
+        for el in self.up_acc_data[self.point_of_shock[1]:self.point_of_finish[1]]:
+            vel_arr = np.append(vel_arr, (np.sqrt(np.sum(np.power(el.veloc, 2))) \
+                - np.sqrt(np.sum(np.power(self.i_down_acc_data[el.number].veloc, 2)))))
+            time_arr = np.append(time_arr, el.time)
+        n_start = np.argmin(vel_arr)
+        vel_arr_compr = np.array([])
+        time_arr_compr = np.array([])
+        n_start_dec = 0
+        for i, el in enumerate(vel_arr[n_start:]):
+            if el < 0:
+                vel_arr_compr = np.append(vel_arr_compr, el)
+                time_arr_compr = np.append(time_arr_compr, time_arr[i+n_start])
+            else:
+                n_start_dec = i + n_start
+                break
+        n_start_dec_new = 0
+        for i, el in enumerate(vel_arr[n_start_dec:]):
+            if vel_arr[n_start_dec + i - 1] < 0 and el > 0:
+                n_start_dec_new = n_start_dec + i 
+        n_start_dec = n_start_dec_new
+        vel_arr_decompr = np.array([])
+        time_arr_decompr = np.array([])
+        for i, el in enumerate(vel_arr[n_start_dec:]):
+            vel_arr_decompr = np.append(vel_arr_decompr, el)
+            time_arr_decompr = np.append(time_arr_decompr, time_arr[i+n_start_dec])
+
+        c_compr = approx(time_arr_compr, vel_arr_compr, [0.1]*len(time_arr_compr))
+        c_decompr = approx(time_arr_decompr, vel_arr_decompr, [0.005]*10+[0.1]*(len(time_arr_decompr)-210)+[0.005]*200)
+        plt.plot(time_arr, vel_arr, ".")
+        t = np.arange(time_arr_compr[0], time_arr_compr[-1], 1)
+        plt.plot(t, func(t, c_compr[0], c_compr[1], c_compr[2], c_compr[3], c_compr[4]))
+        t = np.arange(time_arr_decompr[0],time_arr_decompr[-1], 1)
+        plt.plot(t, func(t, c_decompr[0], c_decompr[1], c_decompr[2], c_decompr[3], c_decompr[4]))
+        self.c_compr = c_compr
+        self.c_decompr = c_decompr
+        plt.show()
+
+
+
 
     def get_shock_time(self, tolerance):
         for el in self.i_down_acc_data[self.point_of_start[1]:self.point_of_finish[1]]:
@@ -302,7 +426,7 @@ class LandGear:
             for j in range(el.number+1, self.point_of_finish[1]):
                 self.up_acc_data[j].angle += d_angle
                 self.up_acc_data[j].rotate(rad(-d_angle))
-        print(self.up_acc_data[self.point_of_finish[1]-1].angle)
+        # print(self.up_acc_data[self.point_of_finish[1]-1].angle)
 
         for i, el in enumerate(self.i_down_acc_data[self.point_of_start[1]-1:self.point_of_finish[1]]):
             d_t = self.i_down_acc_data[el.number+1].time - el.time # microseconds
@@ -326,12 +450,12 @@ class LandGear:
         v_up_abs = np.sqrt(np.sum(np.power(v_up, 2)))
         v_down_abs = np.sqrt(np.sum(np.power(v_down, 2)))
         self.up_acc_data[self.point_of_shock[1]].veloc = v_up * v_down_abs / v_up_abs
-        self.i_down_acc_data[self.point_of_shock[1]].veloc = v_up * v_up_abs / v_down_abs
-        for i, el in enumerate(self.up_acc_data[self.point_of_shock[1]:self.point_of_finish[1]]):
+        self.i_down_acc_data[self.point_of_shock[1]].veloc = v_down * v_up_abs / v_down_abs
+        for i, el in enumerate(self.up_acc_data[self.point_of_shock[1]:self.point_of_finish[1]+1000]):
             d_t = self.up_acc_data[el.number+1].time - el.time
             acc = (self.up_acc_data[el.number+1].accel + el.accel) / 2
             self.up_acc_data[el.number+1].veloc = el.veloc + acc * d_t
-        for i, el in enumerate(self.i_down_acc_data[self.point_of_shock[1]:self.point_of_finish[1]]):
+        for i, el in enumerate(self.i_down_acc_data[self.point_of_shock[1]:self.point_of_finish[1]+1000]):
             d_t = self.i_down_acc_data[el.number+1].time - el.time
             acc = (self.i_down_acc_data[el.number+1].accel + el.accel) / 2
             self.i_down_acc_data[el.number+1].veloc = el.veloc + acc * d_t
@@ -689,7 +813,7 @@ for el in res_decoded.down:
 land_gear = LandGear(up_acc, down_acc)
 
 land_gear.process()
-print(land_gear)
+# print(land_gear)
 
 
 
