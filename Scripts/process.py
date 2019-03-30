@@ -7,18 +7,36 @@ from mpl_toolkits.mplot3d import Axes3D
 import scipy.optimize as opt
 import string
 
-def func(x, a, b, c, d, e):
-    return a * np.power(x, 4) + b * np.power(x, 3) + c * np.power(x, 2) + d * x + e
+def func_c(x, a, b, c, d):
+    return a * np.power((x-550000), 4) + b * np.power((x-550000), 3) + c * np.power((x-550000), 2) + d
 
-def der_func(x, a, b, c, d):
-    return a * np.power(x, 3) + b * np.power(x, 2) + c * x + d
+def der_func_c(x, a, b, c):
+    return 4 * a * np.power((x-550000), 3) + 3 * b * np.power((x-550000), 2) + 2 * c * (x-550000)
 
-def approx(x, y, yerr):
-    ap = opt.curve_fit(func, x, y, method="lm", sigma=yerr, absolute_sigma=True, maxfev=10000)
+def func_dc(x, a, b, c, d, e):
+    m = 100
+    g = 9.79341 * 1000
+    return a * np.power((x - 1068174.8), 4) + b * np.power((x - 1068174.8), 3) + c * np.power(x - 1068174.8, 2)  + d
+
+def der_func_dc(x, a, b, c, d):
+    m = 100
+    g = 9.79341 * 1000
+    return 4 * a * np.power((x - 1068174.8), 3) + 3 * b * np.power(x - 1068174.8, 2) + 2 * c *(x - 1068174.8)
+
+def approx_c(x, y, yerr):
+    ap = opt.curve_fit(func_c, x, y, method="lm", sigma=yerr, absolute_sigma=True, maxfev=10000)
     perr = np.sqrt(np.diag(ap[1]))
     for i, el in enumerate(list(string.ascii_lowercase)[0:len(ap[0])]):
         print(str(el) + ': ' + str(ap[0][i]) + ' err: ' + str(perr[i]))
     return ap[0]
+
+def approx_dc(x, y, yerr):
+    ap = opt.curve_fit(func_dc, x, y, method="lm", sigma=yerr, absolute_sigma=True, maxfev=10000)
+    perr = np.sqrt(np.diag(ap[1]))
+    for i, el in enumerate(list(string.ascii_lowercase)[0:len(ap[0])]):
+        print(str(el) + ': ' + str(ap[0][i]) + ' err: ' + str(perr[i]))
+    return ap[0]
+
 
 class AccelData:
     def __init__(self, accel=[0,0,0], gyro=[0,0,0], number=0, time=0):
@@ -96,6 +114,9 @@ class LandGear:
         self.force = []
         self.c_compr = [0,0,0,0,0]
         self.c_decompr = [0,0,0,0,0]
+        self.stock_movement_time_compr = [[0,0]]
+        self.stock_movement_time_decompr = [[0,0]]
+        self.full_decompr_time = 0
 
     def __str__(self):
         printed_string = 'UP                                      DOWN\n'
@@ -125,7 +146,7 @@ class LandGear:
         self.add_gravity()
         self.point_of_shock = self.get_shock_time(10)
         
-        # self.zeroing_resting_state()
+        self.zeroing_resting_state()
         # self.rotate_around_z()
         
         self.calc_velocity()
@@ -135,9 +156,11 @@ class LandGear:
         # self.calculate_force(100,140)
         # self.plot_force_movement()
         self.veloc_approx()
+        # self.plot_force_func_mov()
         # self.plot_3d_position()
         # self.plot_angle_time()
         # self.plot_acc_time()
+        # self.plot_rel_ax_acc_time()
         # self.plot_vel_time()
         # self.plot_ax_vel_time()
 
@@ -276,7 +299,7 @@ class LandGear:
                 counter -= 1
             if counter == 0 and mov_arr[-1] > 0 and mov_arr[-2] < 0:
                 break
-        print(mov_arr)
+        # print(mov_arr)
         stiction = 0
         for i, el in enumerate(mov_arr[1:]):
             if mov_arr[i] > 0 and el < 0:
@@ -286,9 +309,77 @@ class LandGear:
 
         time_arr = time_arr[:len(mov_arr)]
 
-        # plt.plot(time_arr, mov_arr)
+        plt.plot(time_arr, np.abs(mov_arr * 10**-12))
         # plt.show()
         self.stock_movement = np.abs(mov_arr * 10**-12)
+
+
+    def get_movement_time(self, n_compr, n_decompr):
+        mov_arr_up = np.array([])
+        time_arr = np.array([])
+        for el in self.up_acc_data[self.point_of_shock[1]+n_compr[0]:self.point_of_shock[1]+n_compr[1]]:
+            mov = np.abs(np.sqrt(np.sum(np.power(el.pos, 2))) - np.sqrt(np.sum(np.power(self.up_acc_data[el.number + 1].pos, 2))))
+            mov_arr_up = np.append(mov_arr_up, [mov])
+            time_arr = np.append(time_arr, [el.time])
+
+        mov_arr_down = np.array([])
+        for el in self.i_down_acc_data[self.point_of_shock[1]+n_compr[0]:self.point_of_shock[1]+n_compr[1]]:
+            mov = np.abs(np.sqrt(np.sum(np.power(el.pos, 2))) - np.sqrt(np.sum(np.power(self.i_down_acc_data[el.number + 1].pos, 2))))
+            mov_arr_down = np.append(mov_arr_down, [mov])
+
+        mov_arr_compr = np.array([0])
+        for i, el in enumerate(mov_arr_up):
+            mov_arr_compr = np.append(mov_arr_compr, [mov_arr_compr[-1] + mov_arr_up[i] - mov_arr_down[i]])
+        mov_arr_compr = np.abs(mov_arr_compr[1:])
+        
+        mov_arr_compr = np.append([mov_arr_compr], [time_arr], axis=0)
+
+
+        mov_arr_up = np.array([])
+        time_arr = np.array([])
+        for el in self.up_acc_data[self.point_of_shock[1]+n_decompr:self.point_of_finish[1]]:
+            if el.time < 945000:
+                mov = np.abs(np.sqrt(np.sum(np.power(el.pos, 2))) - np.sqrt(np.sum(np.power(self.up_acc_data[el.number + 1].pos, 2))))
+                mov_arr_up = np.append(mov_arr_up, [mov])
+                time_arr = np.append(time_arr, [el.time])
+            else:
+                mov_arr_up = np.append(mov_arr_up, [mov_arr_up[-1]])
+                time_arr = np.append(time_arr, [el.time])
+
+        mov_arr_down = np.array([])
+        for el in self.i_down_acc_data[self.point_of_shock[1]+n_decompr:self.point_of_finish[1]]:
+            if el.time < 945000:
+                mov = np.abs(np.sqrt(np.sum(np.power(el.pos, 2))) - np.sqrt(np.sum(np.power(self.i_down_acc_data[el.number + 1].pos, 2))))
+                mov_arr_down = np.append(mov_arr_down, [mov])
+            else:
+                mov_arr_down = np.append(mov_arr_down, [mov_arr_down[-1]])
+
+        mov_arr_decompr = np.array([mov_arr_compr[0][-1]])
+        for i, el in enumerate(mov_arr_up):
+            mov_arr_decompr = np.append(mov_arr_decompr, [mov_arr_decompr[-1] - np.abs(mov_arr_up[i] - mov_arr_down[i])])
+            if mov_arr_decompr[-1] < 0:
+                break
+        mov_arr_decompr = np.abs(mov_arr_decompr[1:])
+        mov_arr_compr[0] = mov_arr_compr[0] * 10**-12 # to milimeters
+        mov_arr_decompr = mov_arr_decompr * 10**-12 # to milimeters
+        time_arr = time_arr[:mov_arr_decompr.size]
+        self.full_decompr_time = time_arr[-1]
+        print(self.full_decompr_time)
+        mov_arr_decompr = np.append([mov_arr_decompr], [time_arr], axis=0)
+        # print(mov_arr_decompr)
+        # print(mov_arr)
+        # for i, el in enumerate(mov_arr[1:]):
+        #     if mov_arr[i] > 0 and el < 0:
+        #         stiction = i
+        #         break
+        # print(stiction)
+        self.stock_movement_time_compr = mov_arr_compr
+        self.stock_movement_time_decompr = mov_arr_decompr
+
+    def plot_force_func_mov(self):
+        plt.plot(self.stock_movement_time_compr[0], der_func(self.stock_movement_time_compr[1], self.c_compr[0],self.c_compr[1],self.c_compr[2]))
+        plt.plot(self.stock_movement_time_decompr[0], der_func(self.stock_movement_time_decompr[1], self.c_decompr[0],self.c_decompr[1],self.c_decompr[2]))
+        plt.show()
 
     def calculate_force(self, mass, stiction):
         acc_arr = np.array([0])
@@ -303,46 +394,79 @@ class LandGear:
         self.force = acc_arr * mass * 10**-6   
 
     def veloc_approx(self):
+        m = 100
+        g = 9.79341 * 1000
         vel_arr = np.array([])
         time_arr = np.array([])
         for el in self.up_acc_data[self.point_of_shock[1]:self.point_of_finish[1]]:
             vel_arr = np.append(vel_arr, (np.sqrt(np.sum(np.power(el.veloc, 2))) \
                 - np.sqrt(np.sum(np.power(self.i_down_acc_data[el.number].veloc, 2)))))
             time_arr = np.append(time_arr, el.time)
-        n_start = np.argmin(vel_arr)
+        for i, el in enumerate(vel_arr):
+            if i>3 and vel_arr[i-2] > vel_arr[i-1] and vel_arr[i-1] > el and vel_arr[i+1] > el and vel_arr[i+2] > vel_arr[i+1]:
+                n_start = i
+                break
+        # n_start = np.argmin(vel_arr)
+        vel_arr = vel_arr * m # let it be impulse 
+
         vel_arr_compr = np.array([])
         time_arr_compr = np.array([])
-        n_start_dec = 0
+        n_finish_compr = 0
         for i, el in enumerate(vel_arr[n_start:]):
             if el < 0:
                 vel_arr_compr = np.append(vel_arr_compr, el)
                 time_arr_compr = np.append(time_arr_compr, time_arr[i+n_start])
             else:
-                n_start_dec = i + n_start
+                n_finish_compr = i + n_start
                 break
-        n_start_dec_new = 0
-        for i, el in enumerate(vel_arr[n_start_dec:]):
-            if vel_arr[n_start_dec + i - 1] < 0 and el > 0:
-                n_start_dec_new = n_start_dec + i 
-        n_start_dec = n_start_dec_new
+        n_start_dec = 0
+        for i, el in enumerate(vel_arr[n_finish_compr:]):
+            if vel_arr[n_finish_compr + i - 1] < 0 and el > 0:
+                n_start_dec = n_finish_compr + i 
         vel_arr_decompr = np.array([])
         time_arr_decompr = np.array([])
+        self.get_movement_time([n_start, n_finish_compr], n_start_dec)
         for i, el in enumerate(vel_arr[n_start_dec:]):
-            vel_arr_decompr = np.append(vel_arr_decompr, el)
+            if time_arr[i+n_start_dec] > 945000:
+                # vel_arr_decompr = np.append(vel_arr_decompr, vel_arr_decompr[-1]) 
+                # time_arr_decompr = np.append(time_arr_decompr, time_arr[i+n_start_dec])
+                break
+            vel_arr_decompr = np.append(vel_arr_decompr, el) 
             time_arr_decompr = np.append(time_arr_decompr, time_arr[i+n_start_dec])
-
-        c_compr = approx(time_arr_compr, vel_arr_compr, [0.1]*len(time_arr_compr))
-        c_decompr = approx(time_arr_decompr, vel_arr_decompr, [0.005]*10+[0.1]*(len(time_arr_decompr)-210)+[0.005]*200)
-        plt.plot(time_arr, vel_arr, ".")
+            if time_arr_decompr[-1] > self.full_decompr_time:
+                vel_arr = vel_arr[:i+n_start_dec]
+                break
+        time_arr = time_arr[:vel_arr.size]
+        c_compr = approx_c(time_arr_compr, vel_arr_compr, [0.001] + [0.1]*(len(time_arr_compr)-1))
+        c_decompr = approx_dc(time_arr_decompr, vel_arr_decompr,[0.0001] +[0.001]*10+ [0.1]*(len(time_arr_decompr)-141) + [0.01]*130)
+        plt.subplot(1,2,1)
+        plt.ylabel("", labelpad=15)
+        plt.xlabel('$t{, }\\mu s$', horizontalalignment='right', x=1.0, fontsize='x-large')
+        h = plt.ylabel('$V{, }\\frac{m}{s}$', verticalalignment='top', y=1.0, fontsize='x-large')
+        h.set_rotation(0)
+        plt.plot(time_arr, vel_arr, ".", ms=3)
         t = np.arange(time_arr_compr[0], time_arr_compr[-1], 1)
-        plt.plot(t, func(t, c_compr[0], c_compr[1], c_compr[2], c_compr[3], c_compr[4]))
+        plt.plot(t, func_c(t, c_compr[0], c_compr[1], c_compr[2], c_compr[3]), linewidth=2, color="#fcb716", label="compression")
         t = np.arange(time_arr_decompr[0],time_arr_decompr[-1], 1)
-        plt.plot(t, func(t, c_decompr[0], c_decompr[1], c_decompr[2], c_decompr[3], c_decompr[4]))
+        plt.plot(t, func_dc(t, c_decompr[0], c_decompr[1], c_decompr[2], c_decompr[3], c_decompr[4]), linewidth=2, color="#4daf4a", label="decompression")
+        plt.grid()
+        plt.legend()
+        plt.subplot(1,2,2)
         self.c_compr = c_compr
         self.c_decompr = c_decompr
+        plt.ylabel("", labelpad=15)
+        plt.xlabel('$\\Delta x{, }mm$', horizontalalignment='right', x=1.0, fontsize='x-large')
+        h = plt.ylabel('F, kN', verticalalignment='top', y=1.0, fontsize='x-large')
+        h.set_rotation(0)
+        plt.plot(self.stock_movement_time_compr[0], (m * g + der_func_c(self.stock_movement_time_compr[1], self.c_compr[0],self.c_compr[1],self.c_compr[2])) * 10**-6,color="#fcb716", linewidth=2, label="compression") # to kN
+        plt.plot([self.stock_movement_time_compr[0][-1], self.stock_movement_time_decompr[0][0]], \
+            [(m * g + der_func_c(self.stock_movement_time_compr[1][-1], self.c_compr[0],self.c_compr[1],self.c_compr[2])) * 10**-6, \
+            (m * g + der_func_dc(self.stock_movement_time_decompr[1][0], self.c_decompr[0],self.c_decompr[1],self.c_decompr[2], self.c_decompr[3])) * 10**-6], color="#4daf4a", linewidth=2)
+        plt.plot(self.stock_movement_time_decompr[0], (m * g + der_func_dc(self.stock_movement_time_decompr[1], self.c_decompr[0],self.c_decompr[1],self.c_decompr[2], self.c_decompr[3])) * 10**-6, color="#4daf4a", linewidth=2,  label="decompression")
+        print(self.stock_movement_time_decompr[1][0], func_c(self.stock_movement_time_compr[1][-1],self.c_compr[0],self.c_compr[1],self.c_compr[2],self.c_compr[3]))
+        plt.grid()
+        plt.legend()
         plt.show()
-
-
 
 
     def get_shock_time(self, tolerance):
@@ -382,8 +506,6 @@ class LandGear:
             self.i_down_acc_data[el.number].accel = np.array([0, 0, 0])
             self.i_down_acc_data[el.number].gyro = np.array([0, 0, 0])
             self.i_down_acc_data[el.number].veloc = np.array([0, 0, 0])
-
-
 
     def apply_gyro_offset(self):
         # TODO: use temperature instead
@@ -488,7 +610,6 @@ class LandGear:
                 new_data.append(a)
         self.i_down_acc_data = new_data
 
-
     def calc_position(self):
         for i, el in enumerate(self.up_acc_data[:-1]):
             d_t = self.up_acc_data[i+1].time - el.time
@@ -560,8 +681,10 @@ class LandGear:
         plt.show()
 
     def plot_acc_time(self):
-        plt_list_up = [np.sqrt(np.sum(np.power(el.accel, 2))) for el in self.up_acc_data]
-        plt_list_down = [np.sqrt(np.sum(np.power(el.accel, 2))) for el in self.i_down_acc_data]
+        # plt_list_up = [np.sqrt(np.sum(np.power(el.accel, 2))) for el in self.up_acc_data]
+        # plt_list_down = [np.sqrt(np.sum(np.power(el.accel, 2))) for el in self.i_down_acc_data]
+        plt_list_up = [el.accel[2] for el in self.up_acc_data]
+        plt_list_down = [el.accel[2] for el in self.i_down_acc_data]
         plt_list_time = [el.time for el in self.up_acc_data]
         t1, num1 = self.point_of_start
         t2, num2 = self.point_of_shock
@@ -576,6 +699,16 @@ class LandGear:
         plt.plot(plt_list_time[num1:num2], plt_list_down[num1:num2])
         plt.plot(plt_list_time[num2:num3], plt_list_down[num2:num3])
         plt.plot(plt_list_time[num3:], plt_list_down[num3:])
+        plt.show()
+
+    def plot_rel_ax_acc_time(self):
+        plt_list_xy = [np.sqrt((el.accel[0] + el.accel[1])**2) - np.sqrt((self.i_down_acc_data[el.number].accel[0]+self.i_down_acc_data[el.number].accel[1])**2) for el in self.up_acc_data]
+        plt_list_z = [el.accel[2] - self.i_down_acc_data[el.number].accel[2] for el in self.up_acc_data]
+        plt_list_time = [el.time for el in self.up_acc_data]
+        plt.subplot(2,1,1)
+        plt.plot(plt_list_time, plt_list_xy)
+        plt.subplot(2,1,2)
+        plt.plot(plt_list_time, plt_list_z)
         plt.show()
 
     def plot_vel_time(self):
