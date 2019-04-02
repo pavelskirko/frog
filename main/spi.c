@@ -9,6 +9,7 @@
 
 uint8_t who_am_i[2];
 uint8_t ad_rec[10];
+uint8_t buffer[100];
 size_t dma;
 int16_t gyro;
 //Accel a1[EL_IN_BURST];
@@ -32,11 +33,13 @@ void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_devic
 	spi_device_interface_config_t devcfg={
 				        .clock_speed_hz=2*1000*1000,           //Clock out at 2 MHz
 				        .command_bits=0,
-						.address_bits=8,
-						.mode=0,                                //SPI mode 0
+						.address_bits=0,
+						.mode=3,                                //SPI mode 0
+						.cs_ena_pretrans = 1,
+						.cs_ena_posttrans = 1,
 				        .spics_io_num=PIN_NUM_CS0,               //CS pin
 				        .queue_size=70,  	//We want to be able to queue 7 transactions at a time
-						.flags=0,//SPI_DEVICE_POSITIVE_CS,
+						.flags=0,
 				    };
 	ESP_ERROR_CHECK(spi_bus_initialize(VSPI_HOST, &buscfg, 1));
 	ESP_ERROR_CHECK(spi_bus_add_device(VSPI_HOST, &devcfg, spi1));
@@ -52,16 +55,16 @@ void accel_init(spi_device_handle_t * spi)
 {
 	spi_transaction_t trans;
 	memset(&trans, 0, sizeof(spi_transaction_t));
-	trans.addr=ICM20602_PWR_MGMT_1;
+	trans.tx_data[0]=ICM20602_PWR_MGMT_1;
 	trans.flags=SPI_TRANS_USE_TXDATA;
 	trans.length=16;
-	trans.tx_data[0]=(1<<5)| (1<<4) | (1<<3) | 1; //cycle mode | auto select clock
+	trans.tx_data[1]=(1<<5)| (1<<4) | (1<<3) | 1; //cycle mode | auto select clock
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	spi_transaction_t * r_trans;
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
-	trans.addr=ICM20602_CONFIG;
-	trans.tx_data[0] = 3; // DLPF gyro
+	trans.tx_data[0]=ICM20602_CONFIG;
+	trans.tx_data[1] = 0; // DLPF gyro
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
@@ -70,31 +73,32 @@ void accel_init(spi_device_handle_t * spi)
 //	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 //	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
-	trans.addr=ICM20602_ACCEL_CONFIG;
-	trans.tx_data[0]= (1<<4) | (1<<3); // +-16g
+	trans.tx_data[0]=ICM20602_ACCEL_CONFIG;
+	trans.tx_data[1]= (1<<4) | (1<<3); // +-16g
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
-	trans.addr=ICM20602_SMPLRT_DIV;
-	trans.tx_data[0]= 0;
+	trans.tx_data[0]=ICM20602_SMPLRT_DIV;
+	trans.tx_data[1]= 0;
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 	if(dlpf_acc == 0)
 	{
-		trans.addr=ICM20602_ACCEL_CONFIG2;
-		trans.tx_data[0]=(1<<3); //  DLPF acc
+		trans.tx_data[0]=ICM20602_ACCEL_CONFIG2;
+		trans.tx_data[1]=(1<<3); //  DLPF acc
 		ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 		ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 	}
-
-	trans.addr=ICM20602_ACCEL_CONFIG2;
-	trans.tx_data[0]=dlpf_acc; //  DLPF acc
+	else
+	{
+	trans.tx_data[0]=ICM20602_ACCEL_CONFIG2;
+	trans.tx_data[1]=dlpf_acc; //  DLPF acc
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
-
-	trans.addr=ICM20602_USER_CTRL;
-	trans.tx_data[0]=(1<<6) | (1<<2); // fifo enable | reset fifo
+	}
+	trans.tx_data[0]=ICM20602_USER_CTRL;
+	trans.tx_data[1]=(1<<6) | (1<<2); // fifo enable | reset fifo
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
@@ -106,23 +110,23 @@ void accel_init(spi_device_handle_t * spi)
 //	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 
-	trans.addr=ICM20602_FIFO_EN;
-	trans.tx_data[0]=(1<<3) | (1<<4) ; // enable write acc data | gyro data
+	trans.tx_data[0]=ICM20602_FIFO_EN;
+	trans.tx_data[1]=(1<<3) | (1<<4) ; // enable write acc data | gyro data
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
-	trans.addr=ICM20602_FIFO_WM_TH2;
-	trans.tx_data[0]=0xC0; // treshold that trigers intr, 448 bytes (7*2*32)
+	trans.tx_data[0]=ICM20602_FIFO_WM_TH2;
+	trans.tx_data[1]=0xC0; // treshold that trigers intr, 448 bytes (7*2*32)
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
-	trans.addr=ICM20602_FIFO_WM_TH1;
-	trans.tx_data[0]=0x1;
+	trans.tx_data[0]=ICM20602_FIFO_WM_TH1;
+	trans.tx_data[1]=0x1;
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
-	trans.addr=ICM20602_I2C_IF;
-	trans.tx_data[0]=(1<<6);
+	trans.tx_data[0]=ICM20602_I2C_IF;
+	trans.tx_data[1]=(1<<6);
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
@@ -134,11 +138,10 @@ void acc_who_i_am(spi_device_handle_t * spi, uint8_t i)
 {
 	spi_transaction_t trans;
 	memset(&trans, 0, sizeof(spi_transaction_t));
-	trans.addr = (0x80 | 0x1A);//ICM20602_WHO_AM_I);
+	trans.tx_data[0] = (1<<7)| (ICM20602_WHO_AM_I);
 	trans.length = 16;
 	trans.rxlength=8;
-	trans.rx_data[0] = 1;
-	trans.flags = SPI_TRANS_USE_RXDATA;
+	trans.flags = SPI_TRANS_USE_RXDATA | SPI_TRANS_USE_TXDATA;
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	spi_transaction_t * r_trans;
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
@@ -157,6 +160,7 @@ void acc_who_i_am(spi_device_handle_t * spi, uint8_t i)
 //	who_am_i[i] = r_trans->rx_data[0];
 
 }
+
 
 
 //void adc_setup(spi_device_handle_t * spi)
@@ -187,10 +191,16 @@ void IRAM_ATTR get_data(void *pvParameter)
 {
 	SpiEventGroup = xEventGroupCreate();
 	xTaskToNotify = NULL;
-	spi_device_handle_t spi1;
-	spi_device_handle_t spi2;
+//	spi_device_handle_t spi1;
+//	spi_device_handle_t spi2;
 	spi_device_handle_t spi3;
 	spi_setup(&spi1, &spi2, &spi3);
+
+//	acc_who_i_am(&spi1, 0);
+	accel_init(&spi1);
+	accel_init(&spi2);
+	test(&spi1);
+
 	uint32_t num1 = 0;
 	uint32_t num2 = 0;
 	uint32_t adc_buf;
@@ -200,6 +210,7 @@ void IRAM_ATTR get_data(void *pvParameter)
 	esp_partition_erase_range(partition, 0, partition->size);
 	Accel a;
 	int8_t * dma_buf = (int8_t *)heap_caps_malloc(DMA_BUFF_SIZE, MALLOC_CAP_DMA);
+
 	uint64_t time;
 	vTaskDelay(100 / portTICK_PERIOD_MS);
 	gyro = get_data_acc(&spi1, ICM20602_GYRO_XOUT_L, ICM20602_GYRO_XOUT_H);
@@ -432,6 +443,27 @@ int16_t read_low_high_byte(uint8_t count, int8_t * dma_buf)
 	int16_t x = low_b | (high_b<<8);
 	return x;
 }
+void test(spi_device_handle_t * spi)
+{
+	uint8_t * buffer_dma = (uint8_t *)heap_caps_malloc(100, MALLOC_CAP_DMA);
+	memset(buffer_dma, 0, 100);
+	spi_transaction_t trans;
+	memset(&trans, 0, sizeof(spi_transaction_t));
+	uint8_t addr = (1<<7)| 0x37;
+	trans.tx_buffer = &addr;
+	trans.length = 45*8;
+	trans.rxlength=44*8;
+	trans.flags = 0;
+	trans.rx_buffer = buffer_dma;
+	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+	spi_transaction_t * r_trans;
+	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+	for(int i = 0; i< 100; i++)
+		{
+			buffer[i] = buffer_dma[i];
+		}
+
+}
 
 void get_data_acc_fifo(spi_device_handle_t * spi, int8_t * dma_buf)
 {
@@ -470,20 +502,15 @@ int16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_h
 	int16_t high_b;//= heap_caps_malloc(32, MALLOC_CAP_DMA);
 
 	memset(&trans, 0, sizeof(spi_transaction_t));
-	trans.addr = (0x80 | addr_low);
-	trans.rx_buffer=&low_b;
-	trans.length = 16;
+	trans.tx_data[0] = (1<<7) | (addr_high);
+	trans.rx_buffer=&high_b;
+	trans.length = 24;
 	trans.rxlength=8;
+	trans.flags = SPI_TRANS_USE_TXDATA;
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	spi_transaction_t * r_trans1;
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans1, portMAX_DELAY));
-
-	trans.addr = (0x80 | addr_high);
-	trans.rx_buffer=&high_b;
-	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
-	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans1, portMAX_DELAY));
-	int16_t x = low_b | (high_b<<8);
-	return(x);
+	return(high_b);
 }
 
 void get_data_adc(spi_device_handle_t *spi, uint32_t * buf)

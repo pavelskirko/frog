@@ -10,6 +10,7 @@ from builtins import input
 import socket
 import sys
 import mssg_pb2
+import numpy as np
 
 # -----------  Config  ----------
 PORT = 3000
@@ -50,6 +51,25 @@ while True:
     if(dlpf_s < 0 or dlpf_s > 10):
         continue
     sock.sendall(bytes([dlpf_s | (1<<7)]))
+    if(dlpf_s == 1):
+        while True:
+            data = sock.recv(1024)
+            if not data:
+                continue
+                print("there is no data")
+            try:
+                accel.ParseFromString(data)
+            except Exception as error:
+                print('Caught this error: ' + repr(error))
+                print("data = ", len(data))
+                print(data)
+                sock.sendall(b_fail)
+                print(n_fail, n_sucss)
+                continue
+            print(accel, np.around((accel.a_x**2 + accel.a_y**2 + accel.a_z**2)**(1/2),2),  np.around((accel.g_x**2 + accel.g_y**2 + accel.g_z**2)**(1/2),2))
+
+
+
 
     while True:
         data = sock.recv(1024)
@@ -83,7 +103,7 @@ while True:
         else:
             res.down.extend([accel])
     res_encoded = res.SerializeToString()
-    file = open("result_dlpf_{}_num_{}.txt".format(dlpf_s, num), "wb+")
+    file = open("test_dlpf_{}_num_{}.txt".format(dlpf_s, num), "wb+")
     num += 1
     file.write(res_encoded)
     file.close()

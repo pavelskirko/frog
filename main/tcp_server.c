@@ -179,8 +179,42 @@ void IRAM_ATTR tcp_server(void *pvParameters)
         			r = recv(cs, &setting_buf, sizeof(uint8_t), MSG_WAITALL);
         		}
 
-        		dlpf_acc = (setting_buf & ((1<<2)|(1<<1)|(1<<0)));
+        		dlpf_acc = 0;
         		xEventGroupSetBits(SpiEventGroup, BIT2); // BIT2 -- received setting
+        		if((setting_buf & ((1<<2)|(1<<1)|(1))) == 1)
+        		{
+        			accel_init(&spi1);
+        			accel_init(&spi2);
+        			vTaskDelay(10 / portTICK_PERIOD_MS);
+                	while(1)
+                	{
+        //        		get_data_acc_fifo(&spi2, test_buf);
+                		stream = pb_ostream_from_buffer(buf, sizeof(buf));
+                		a.last_msg = false;
+                		a.a_x = get_data_acc(&spi1, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
+                		a.a_y = get_data_acc(&spi1, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
+                		a.a_z = get_data_acc(&spi1, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
+                		a.g_x = get_data_acc(&spi2, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
+                		a.g_y = get_data_acc(&spi2, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
+                		a.g_z = get_data_acc(&spi2, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
+                		memset(buf, 0, sizeof(buf));
+                		size_t g_size;
+                		pb_get_encoded_size(&g_size, Accel_fields, &a);
+                		pb_encode(&stream, Accel_fields, &a);
+                		s = 0;
+
+              			while(s < g_size)
+               			{
+               				s = write(cs , buf, g_size);
+               			}
+              			memset(&stream, 0, sizeof(pb_ostream_t));
+              			indic(1);
+                	}
+
+
+        		}
+                else
+                {
         		xEventGroupWaitBits(SpiEventGroup,    // The event group being tested.
         							BIT1,  // BIT1 -- recording completed
         							pdTRUE,         // should be cleared before returning.
@@ -214,7 +248,7 @@ void IRAM_ATTR tcp_server(void *pvParameters)
 //       			}
 //      			memset(&stream, 0, sizeof(pb_ostream_t));
 //      			indic(1);
-//
+
 //        	}
 //
 
@@ -333,7 +367,7 @@ void IRAM_ATTR tcp_server(void *pvParameters)
         		esp_partition_erase_range(partition, 0, partition->size);
         		indic(3);
         	}
-
+        	}
        		close(cs);
 
         }

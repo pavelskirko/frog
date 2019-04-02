@@ -10,6 +10,7 @@ from builtins import input
 import socket
 import sys
 import mssg_pb2
+import numpy as np
 
 # -----------  Config  ----------
 PORT = 3000
@@ -54,5 +55,5 @@ while True:
         sock.sendall(b_fail)
         print(n_fail, n_sucss)
         continue
-    print(accel, (accel.a_x**2 + accel.a_y**2 + accel.a_z**2)**(1/2),  (accel.g_x**2 + accel.g_y**2 + accel.g_z**2)**(1/2))
+    print(accel, np.around((accel.a_x**2 + accel.a_y**2 + accel.a_z**2)**(1/2),2),  np.around((accel.g_x**2 + accel.g_y**2 + accel.g_z**2)**(1/2),2))
 sock.close()

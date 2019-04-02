@@ -52,6 +52,9 @@
 #define DMA_BUFF_SIZE	EL_IN_BURST*7*2
 
 
+spi_device_handle_t spi1;
+spi_device_handle_t spi2;
+
 uint8_t  dlpf_acc;
 TaskHandle_t xTaskToNotify;
 const esp_partition_t *partition;
@@ -65,6 +68,7 @@ void adc_setup(spi_device_handle_t * spi2);
 void get_data(void *pvParameter);
 void get_data_adc(spi_device_handle_t *spi, uint32_t * buf);
 void get_data_acc_fifo(spi_device_handle_t * spi, int8_t * dma_buf);
+void test(spi_device_handle_t * spi);
 int16_t read_low_high_byte(uint8_t count, int8_t * dma_buf);
 uint8_t check_intr(spi_device_handle_t * spi);
 
