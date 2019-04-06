@@ -44,7 +44,7 @@ num = 0
 
 while True:
 
-    dlpf_s = input("dlpf setting (0-7, 10 for exit): ")
+    dlpf_s = input("0-record, 1-show, 10-exit: ")
     dlpf_s = int(dlpf_s)
     if(dlpf_s == 10):
         break
@@ -103,7 +103,7 @@ while True:
         else:
             res.down.extend([accel])
     res_encoded = res.SerializeToString()
-    file = open("test_dlpf_{}_num_{}.txt".format(dlpf_s, num), "wb+")
+    file = open("test_{}_num_{}.txt".format(dlpf_s, num), "wb+")
     num += 1
     file.write(res_encoded)
     file.close()
@@ -112,4 +112,4 @@ while True:
 sock.close()
 
 
-print("Overall, ", len(res.up), " + ", len(res.down), " elements")
+# print("Overall, ", len(res.up), " + ", len(res.down), " elements")

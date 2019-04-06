@@ -61,7 +61,7 @@ const esp_partition_t *partition;
 uint8_t data_size[2 * NUM_OF_FIELDS + 34];
 EventGroupHandle_t SpiEventGroup;
 void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3);
-int16_t get_data_acc(spi_device_handle_t * spi, uint8_t addr_low, uint8_t addr_high);
+void get_data_acc(spi_device_handle_t * spi, uint8_t * tr, int16_t * result);
 void accel_init(spi_device_handle_t * spi);
 void acc_who_i_am(spi_device_handle_t * spi, uint8_t i);
 void adc_setup(spi_device_handle_t * spi2);

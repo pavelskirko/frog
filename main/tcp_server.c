@@ -185,18 +185,21 @@ void IRAM_ATTR tcp_server(void *pvParameters)
         		{
         			accel_init(&spi1);
         			accel_init(&spi2);
-        			vTaskDelay(10 / portTICK_PERIOD_MS);
+        			vTaskDelay(1 / portTICK_PERIOD_MS);
                 	while(1)
                 	{
         //        		get_data_acc_fifo(&spi2, test_buf);
                 		stream = pb_ostream_from_buffer(buf, sizeof(buf));
+                		uint8_t * tr = (uint8_t *)heap_caps_malloc(15, MALLOC_CAP_DMA);
+                		int16_t a_buf[6];
+                		get_data_acc(&spi1, tr, a_buf);
                 		a.last_msg = false;
-                		a.a_x = get_data_acc(&spi1, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
-                		a.a_y = get_data_acc(&spi1, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
-                		a.a_z = get_data_acc(&spi1, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
-                		a.g_x = get_data_acc(&spi2, ICM20602_ACCEL_XOUT_L, ICM20602_ACCEL_XOUT_H);
-                		a.g_y = get_data_acc(&spi2, ICM20602_ACCEL_YOUT_L, ICM20602_ACCEL_YOUT_H);
-                		a.g_z = get_data_acc(&spi2, ICM20602_ACCEL_ZOUT_L, ICM20602_ACCEL_ZOUT_H);
+                		a.a_x = a_buf[0];
+                		a.a_y = a_buf[1];
+                		a.a_z = a_buf[2];
+                		a.g_x = a_buf[3];
+                		a.g_y = a_buf[4];
+                		a.g_z = a_buf[5];
                 		memset(buf, 0, sizeof(buf));
                 		size_t g_size;
                 		pb_get_encoded_size(&g_size, Accel_fields, &a);
@@ -208,6 +211,7 @@ void IRAM_ATTR tcp_server(void *pvParameters)
                				s = write(cs , buf, g_size);
                			}
               			memset(&stream, 0, sizeof(pb_ostream_t));
+              			heap_caps_free(tr);
               			indic(1);
                 	}
 

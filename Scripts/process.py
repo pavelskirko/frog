@@ -133,29 +133,29 @@ class LandGear:
         self.cut_edges(32)
         # self.moving_avrg_acc(1)
         self.match_numbers()
-        self.point_of_start = self.get_start_time(0.02)
-        self.point_of_finish = self.get_finish_time(0.018)
+        # self.point_of_start = self.get_start_time(0.02)
+        # self.point_of_finish = self.get_finish_time(0.018)
         self.gravity = [self.get_avrg_gravity_up(self.point_of_start[0]), self.get_avrg_gravity_down(self.point_of_start[0]), self.get_finish_gravity_up()]
-        self.apply_gyro_offset()
-        self.normalize_gyro(250)
-        self.allign_to_start_gravity()
+        # self.apply_gyro_offset()
+        # self.normalize_gyro(250)
+        # self.allign_to_start_gravity()
         # self.just_rotate_everything(np.array([45,0,45]))
-        self.rotate_by_gyro_angle()
+        # self.rotate_by_gyro_angle()
         
         # self.acc_rotation()
-        self.add_gravity()
-        self.point_of_shock = self.get_shock_time(10)
+        # self.add_gravity()
+        # self.point_of_shock = self.get_shock_time(10)
         
-        self.zeroing_resting_state()
+        # self.zeroing_resting_state()
         # self.rotate_around_z()
         
-        self.calc_velocity()
-        self.calc_position()
-        self.shock_velocity()
-        self.calculate_movement(140)
+        # self.calc_velocity()
+        # self.calc_position()
+        # self.shock_velocity()
+        # self.calculate_movement(140)
         # self.calculate_force(100,140)
         # self.plot_force_movement()
-        self.veloc_approx()
+        # self.veloc_approx()
         # self.plot_force_func_mov()
         # self.plot_3d_position()
         # self.plot_angle_time()
@@ -929,12 +929,12 @@ def rad_norm(rad):
 
 
 # file = open("result3.txt", "rb")
-file = open("result_with_gyro_6.txt", "rb")
+file = open("test_0_num_0.txt", "rb")
 
 data = file.read()
 res_decoded = mssg_pb2.FinalResult()
 res_decoded.ParseFromString(data)
-# print(res_decoded)
+print(res_decoded)
 up_acc = []
 down_acc = []
 for el in res_decoded.up:
