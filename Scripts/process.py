@@ -128,10 +128,9 @@ class LandGear:
         return printed_string
 
     def process(self):
-        pass
         # self.fill_time_gaps()
-        # self.interpolate()
-        # self.cut_edges(32)
+        self.interpolate()
+        self.cut_edges(32)
         # self.moving_avrg_acc(1)
         # self.match_numbers()
         # self.point_of_start = self.get_start_time(0.02)
@@ -160,7 +159,7 @@ class LandGear:
         # self.plot_force_func_mov()
         # self.plot_3d_position()
         # self.plot_angle_time()
-        # self.plot_acc_time()
+        self.plot_acc_time()
         # self.plot_rel_ax_acc_time()
         # self.plot_vel_time()
         # self.plot_ax_vel_time()
@@ -682,10 +681,10 @@ class LandGear:
         plt.show()
 
     def plot_acc_time(self):
-        # plt_list_up = [np.sqrt(np.sum(np.power(el.accel, 2))) for el in self.up_acc_data]
-        # plt_list_down = [np.sqrt(np.sum(np.power(el.accel, 2))) for el in self.i_down_acc_data]
-        plt_list_up = [el.accel[2] for el in self.up_acc_data]
-        plt_list_down = [el.accel[2] for el in self.i_down_acc_data]
+        plt_list_up = [np.sqrt(np.sum(np.power(el.accel, 2))) for el in self.up_acc_data]
+        plt_list_down = [np.sqrt(np.sum(np.power(el.accel, 2))) for el in self.i_down_acc_data]
+        # plt_list_up = [el.accel[2] for el in self.up_acc_data]
+        # plt_list_down = [el.accel[2] for el in self.i_down_acc_data]
         plt_list_time = [el.time for el in self.up_acc_data]
         t1, num1 = self.point_of_start
         t2, num2 = self.point_of_shock
@@ -930,7 +929,7 @@ def rad_norm(rad):
 
 
 # file = open("result3.txt", "rb")
-file = open("final_test_0_num_0.txt", "rb")
+file = open("final_test_0_num_1.txt", "rb")
 
 data = file.read()
 res_decoded = mssg_pb2.FinalResult()

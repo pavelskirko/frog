@@ -193,7 +193,7 @@ void IRAM_ATTR tcp_server(void *pvParameters)
                 		uint8_t * tr = (uint8_t *)heap_caps_malloc(DMA_BUFF_SIZE, MALLOC_CAP_DMA);
                 		uint8_t * dma_addr = (uint8_t *)heap_caps_malloc(DMA_BUFF_SIZE, MALLOC_CAP_DMA);
                 		int16_t a_buf[6];
-                		get_data_acc(&spi1, dma_addr, tr, a_buf);
+                		get_data_acc(&spi2, dma_addr, tr, a_buf);
                 		a.last_msg = false;
                 		a.a_x = a_buf[0];
                 		a.a_y = a_buf[1];

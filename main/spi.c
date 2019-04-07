@@ -63,12 +63,12 @@ void accel_init(spi_device_handle_t * spi)
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 	trans.tx_data[0]=ICM20602_CONFIG;
-	trans.tx_data[1] = 0; // DLPF gyro
+	trans.tx_data[1] = 1; // DLPF gyro
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 	trans.tx_data[0] = ICM20602_GYRO_CONFIG;
-	trans.tx_data[1] = 1;
+	trans.tx_data[1] = (1<<3);
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
@@ -78,7 +78,7 @@ void accel_init(spi_device_handle_t * spi)
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 	trans.tx_data[0]=ICM20602_ACCEL_CONFIG2;
-	trans.tx_data[1]=(1<<3); //  DLPF acc
+	trans.tx_data[1]=1<<3; //  DLPF acc
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
