@@ -103,7 +103,7 @@ while True:
         else:
             res.down.extend([accel])
     res_encoded = res.SerializeToString()
-    file = open("test_{}_num_{}.txt".format(dlpf_s, num), "wb+")
+    file = open("final_test_{}_num_{}.txt".format(dlpf_s, num), "wb+")
     num += 1
     file.write(res_encoded)
     file.close()

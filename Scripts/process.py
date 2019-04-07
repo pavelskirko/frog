@@ -128,14 +128,15 @@ class LandGear:
         return printed_string
 
     def process(self):
-        self.fill_time_gaps()
-        self.interpolate()
-        self.cut_edges(32)
+        pass
+        # self.fill_time_gaps()
+        # self.interpolate()
+        # self.cut_edges(32)
         # self.moving_avrg_acc(1)
-        self.match_numbers()
+        # self.match_numbers()
         # self.point_of_start = self.get_start_time(0.02)
         # self.point_of_finish = self.get_finish_time(0.018)
-        self.gravity = [self.get_avrg_gravity_up(self.point_of_start[0]), self.get_avrg_gravity_down(self.point_of_start[0]), self.get_finish_gravity_up()]
+        # self.gravity = [self.get_avrg_gravity_up(self.point_of_start[0]), self.get_avrg_gravity_down(self.point_of_start[0]), self.get_finish_gravity_up()]
         # self.apply_gyro_offset()
         # self.normalize_gyro(250)
         # self.allign_to_start_gravity()
