@@ -12,16 +12,10 @@ uint8_t ad_rec[10];
 uint8_t buffer[100];
 size_t dma;
 int16_t gyro;
-//Accel a1[EL_IN_BURST];
 int16_t temp;
 Accel a;
 int16_t result[100];
 int32_t transf;
-//Accel a3;
-//size_t heap1;
-//size_t heap2;
-//size_t accel_size;
-//size_t data_size;
 
 void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_device_handle_t * spi3)
 {
@@ -34,7 +28,7 @@ void spi_setup(spi_device_handle_t * spi1, spi_device_handle_t * spi2, spi_devic
 				        .max_transfer_sz=4094*16,
 				    };
 	spi_device_interface_config_t devcfg={
-				        .clock_speed_hz=2*100*1000,           //Clock out at 2 MHz
+				        .clock_speed_hz=10*1000*1000,           //Clock out at 2 MHz
 				        .command_bits=0,
 						.address_bits=0,
 						.mode=3,                                //SPI mode 0
@@ -79,12 +73,12 @@ void accel_init(spi_device_handle_t * spi)
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 	trans.tx_data[0]=ICM20602_ACCEL_CONFIG;
-	trans.tx_data[1]= (1<<4); // +-16g
+	trans.tx_data[1]= (1<<4)|(1<<3); // +-16g
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 	trans.tx_data[0]=ICM20602_ACCEL_CONFIG2;
-	trans.tx_data[1]=0; //  DLPF acc
+	trans.tx_data[1]=(1<<3); //  DLPF acc
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
@@ -114,7 +108,7 @@ void accel_init(spi_device_handle_t * spi)
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 	trans.tx_data[0]=ICM20602_PWR_MGMT_1;
-	trans.tx_data[1]=(1<<5) |(1<<4)| (1<<3) | 1; //cycle mode | auto select clock
+	trans.tx_data[1]= 1; //cycle mode | auto select clock
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
@@ -124,9 +118,9 @@ void accel_init(spi_device_handle_t * spi)
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 //	trans.tx_data[0]=ICM20602_INT_ENABLE;
-//		trans.tx_data[1]=1;
-//		ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
-//		ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
+//	trans.tx_data[1]=(1<<2);
+//	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
+//	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans, portMAX_DELAY));
 
 
 
@@ -209,12 +203,12 @@ void IRAM_ATTR get_data(void *pvParameter)
 //	acc_who_i_am(&spi1, 0);
 //	vTaskDelay(1 / portTICK_PERIOD_MS);
 //	}
-	accel_init(&spi1);
+//	accel_init(&spi1);
 //	accel_init(&spi2);
-	while(1)
-	{
-	get_data_acc(&spi1, addr_dma_buf,  buffer, result);
-	}
+//	while(1)
+//	{
+//	get_data_acc(&spi1, addr_dma_buf,  dma_buf, a_buf);
+//	}
 	//	while(1)
 //	{
 //		test(&spi2);
@@ -387,7 +381,7 @@ uint8_t check_intr(spi_device_handle_t * spi)
 		return(0);
 }
 
-void get_data_acc(spi_device_handle_t * spi, uint8_t * dma_addr,  uint8_t * tr, int16_t * result)
+void get_data_acc(spi_device_handle_t * spi, uint8_t * dma_addr,  uint8_t * tr, int16_t * a_buf)
 {
 	spi_transaction_t trans;
 	spi_transaction_t * r_trans1;
@@ -413,15 +407,24 @@ void get_data_acc(spi_device_handle_t * spi, uint8_t * dma_addr,  uint8_t * tr, 
 	trans.tx_buffer = dma_addr;
 	trans.rx_buffer = tr;
 	trans.length = 15*8;
+	trans.rxlength = 15*8;
 	trans.flags = 0;
 	ESP_ERROR_CHECK(spi_device_queue_trans(*spi, &trans, portMAX_DELAY));
 	ESP_ERROR_CHECK(spi_device_get_trans_result(*spi, &r_trans1, portMAX_DELAY));
-	result[0] = (tr[1]<<8) | tr[2]; // acc_x
-	result[1] = (tr[3]<<8) | tr[4]; // acc_y
-	result[2] = (tr[5]<<8) | tr[6]; // acc_z
-	result[3] = (tr[9]<<8) | tr[10]; // gyro_x
-	result[4] = (tr[11]<<8) | tr[12]; // gyro_y
-	result[5] = (tr[13]<<8) | tr[14]; // gyro_z
+	a_buf[0] = (tr[1]<<8) | tr[2]; // acc_x
+	a_buf[1] = (tr[3]<<8) | tr[4]; // acc_y
+	a_buf[2] = (tr[5]<<8) | tr[6]; // acc_z
+	a_buf[3] = (tr[9]<<8) | tr[10]; // gyro_x
+	a_buf[4] = (tr[11]<<8) | tr[12]; // gyro_y
+	a_buf[5] = (tr[13]<<8) | tr[14]; // gyro_z
+	for (int i = 0; i<15; i++)
+	{
+		buffer[i] = tr[i];
+	}
+	for (int i = 0; i < 6; i++)
+	{
+		result[i] = a_buf[i];
+	}
 //	memcpy(result, tr, 3);
 //	heap_caps_free(tr);
 //	return(result);

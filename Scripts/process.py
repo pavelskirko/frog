@@ -930,7 +930,7 @@ def rad_norm(rad):
 
 
 # file = open("result3.txt", "rb")
-file = open("test_0_num_0.txt", "rb")
+file = open("final_test_0_num_0.txt", "rb")
 
 data = file.read()
 res_decoded = mssg_pb2.FinalResult()

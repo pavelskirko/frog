@@ -46,7 +46,7 @@
 #define PIN_NUM_CS0   5 // local acc
 #define PIN_NUM_CS1   4 // remote acc
 #define PIN_NUM_CS2   2 // adc
-#define NUM_OF_FIELDS	100
+#define NUM_OF_FIELDS	8000
 #define MAX_PRTBUF_SIZE		100
 #define EL_IN_BURST		32 // change ICM20602_FIFO_WM_TH if you are changing that
 #define DMA_BUFF_SIZE	15
